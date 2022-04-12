@@ -1,5 +1,5 @@
 {
-  "pluginAlias": "ExampleHomebridgePlugin",
+  "pluginAlias": "PanasonicHeatPumpHomebridgePlugin",
   "pluginType": "platform",
   "singular": true,
   "schema": {
