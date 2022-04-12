@@ -1,5 +1,5 @@
 import { Service, PlatformAccessory, CharacteristicValue, Characteristic } from 'homebridge';
-import { PanasonicApi } from './panasonicApi';
+import { PanasonicApi, PanasonicSpecialStatus } from './panasonicApi';
 
 import { PanasonicHeatPumpHomebridgePlatform } from './platform';
 
@@ -10,15 +10,10 @@ import { PanasonicHeatPumpHomebridgePlatform } from './platform';
  */
 export class PanasonicHeatPumpPlatformAccessory {
   private service: Service;
-
-  /**
-   * These are just used to create a working example
-   * You should implement your own code to track the state of your accessory
-   */
-  private exampleStates = {
-    On: false,
-    Brightness: 100,
-  };
+  private outdoorTemperatureService: Service;
+  private tankService: Service;
+  private ecoModeService: Service;
+  private comfortModeService: Service;
 
   constructor(
     private readonly platform: PanasonicHeatPumpHomebridgePlatform,
@@ -32,92 +27,160 @@ export class PanasonicHeatPumpPlatformAccessory {
       .setCharacteristic(this.platform.Characteristic.Model, 'Default-Model')
       .setCharacteristic(this.platform.Characteristic.SerialNumber, 'Default-Serial');
 
-    // get the LightBulb service if it exists, otherwise create a new LightBulb service
-    // you can create multiple services for each accessory
-    this.service = this.accessory.getService(this.platform.Service.Thermostat) || this.accessory.addService(this.platform.Service.Thermostat);
+    // FLOOR
+    this.service = this.accessory.getService('Floors')
+      || this.accessory.addService(this.platform.Service.HeaterCooler, 'Floors', 'floors');
 
-    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.displayName);
-    this.service.getCharacteristic(this.platform.Characteristic.CurrentTemperature).setProps({
-      minValue: -100,
-      maxValue: 100,
-      minStep: 0.01,
-    }).onGet(this.getTemperature.bind(this));
+    this.service.setCharacteristic(this.platform.Characteristic.Name, 'Floors');
+    this.service.getCharacteristic(this.platform.Characteristic.CurrentTemperature).onGet(async () => {
+      const { temperatureNow } = await this.getReadings();
+      return temperatureNow;
+    });
+    this.service.getCharacteristic(this.platform.Characteristic.Active).onGet(async () => {
+      const { isActive } = await this.getReadings();
+      return isActive;
+    });
+    this.service.getCharacteristic(this.platform.Characteristic.CurrentHeaterCoolerState).onGet(async () => {
+      const { heatingCoolingState } = await this.getReadings();
+      return heatingCoolingState;
+    });
+    // this.service.getCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature).onGet(async () => {
+    //   const { heatingCoolingState } = await this.getReadings();
+    //   return heatingCoolingState;
+    // });
 
-    // /**
-    this.service.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).onGet(this.getHeatingCoolingState.bind(this));
+    // Water
+    this.tankService = this.accessory.getService('Water')
+      || this.accessory.addService(this.platform.Service.Thermostat, 'Water', 'water');
+    this.tankService.setCharacteristic(this.platform.Characteristic.Name, 'Water');
+    this.tankService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).onGet(async () => {
+      const { tankTemperatureNow } = await this.getReadings();
+      return tankTemperatureNow;
+    });
+    this.tankService.getCharacteristic(this.platform.Characteristic.TargetTemperature).onGet(async () => {
+      const { tankTemperatureSet } = await this.getReadings();
+      return tankTemperatureSet;
+    });
+    this.tankService.getCharacteristic(this.platform.Characteristic.TargetTemperature).onSet(async (temp: any) => {
+      panasonicApi.setTankTargetHeat(this.accessory.context.device.uniqueId, temp);
 
-    // /**
-    //  * Creating multiple services of the same type.
-    //  *
-    //  * To avoid "Cannot add a Service with the same UUID another Service without also defining a unique 'subtype' property." error,
-    //  * when creating multiple services of the same type, you need to use the following syntax to specify a name and subtype id:
-    //  * this.accessory.getService('NAME') || this.accessory.addService(this.platform.Service.Lightbulb, 'NAME', 'USER_DEFINED_SUBTYPE_ID');
-    //  *
-    //  * The USER_DEFINED_SUBTYPE must be unique to the platform accessory (if you platform exposes multiple accessories, each accessory
-    //  * can use the same sub type id.)
-    //  */
+    });
+    this.tankService.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).onGet(async () => {
+      const { tankHeatingCoolingState } = await this.getReadings();
+      return tankHeatingCoolingState;
+    });
 
-    // // Example: add two "motion sensor" services to the accessory
-    // const motionSensorOneService = this.accessory.getService('Motion Sensor One Name') ||
-    //   this.accessory.addService(this.platform.Service.MotionSensor, 'Motion Sensor One Name', 'YourUniqueIdentifier-1');
 
-    // const motionSensorTwoService = this.accessory.getService('Motion Sensor Two Name') ||
-    //   this.accessory.addService(this.platform.Service.MotionSensor, 'Motion Sensor Two Name', 'YourUniqueIdentifier-2');
+    // Outdoor temperature
+    this.outdoorTemperatureService = this.accessory.getService('Outdoor') ||
+      this.accessory.addService(this.platform.Service.TemperatureSensor, 'Outdoor', 'outdoor');
+    this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).onGet(async () => {
+      const { outdoorTemperatureNow } = await this.getReadings();
+      return outdoorTemperatureNow;
+    });
 
-    // /**
-    //  * Updating characteristics values asynchronously.
-    //  *
-    //  * Example showing how to update the state of a Characteristic asynchronously instead
-    //  * of using the `on('get')` handlers.
-    //  * Here we change update the motion sensor trigger states on and off every 10 seconds
-    //  * the `updateCharacteristic` method.
-    //  *
-    //  */
-    // let motionDetected = false;
-    // setInterval(() => {
-    //   // EXAMPLE - inverse the trigger
-    //   motionDetected = !motionDetected;
 
-    //   // push the new value to HomeKit
-    //   motionSensorOneService.updateCharacteristic(this.platform.Characteristic.MotionDetected, motionDetected);
-    //   motionSensorTwoService.updateCharacteristic(this.platform.Characteristic.MotionDetected, !motionDetected);
+    // Eco Mode
+    this.ecoModeService = this.accessory.getService('Eco Mode') ||
+      this.accessory.addService(this.platform.Service.Switch, 'Eco Mode', 'eco-mode');
+    this.ecoModeService.getCharacteristic(this.platform.Characteristic.On).onGet(async () => {
+      const { ecoModeIsActive } = await this.getReadings();
+      return ecoModeIsActive;
+    });
+    this.ecoModeService.getCharacteristic(this.platform.Characteristic.On).onSet(async (value) => {
+      if(value) {
+        panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.Eco);
+        this.comfortModeService.getCharacteristic(this.platform.Characteristic.On).updateValue(false);
+      } else {
+        panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.None);
+      }
+    });
 
-    //   this.platform.log.debug('Triggering motionSensorOneService:', motionDetected);
-    //   this.platform.log.debug('Triggering motionSensorTwoService:', !motionDetected);
-    // }, 10000);
+
+    // Comfort Mode
+    this.comfortModeService = this.accessory.getService('Comfort Mode') ||
+      this.accessory.addService(this.platform.Service.Switch, 'Comfort Mode', 'comfort-mode');
+    this.comfortModeService.getCharacteristic(this.platform.Characteristic.On).onGet(async () => {
+      const { comfortModeIsActive } = await this.getReadings();
+      return comfortModeIsActive;
+    });
+    this.comfortModeService.getCharacteristic(this.platform.Characteristic.On).onSet(async (value) => {
+      if(value) {
+        panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.Comfort);
+        this.ecoModeService.getCharacteristic(this.platform.Characteristic.On).updateValue(false);
+      } else {
+        panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.None);
+      }
+    });
   }
 
-  async getTemperature(): Promise<CharacteristicValue> {
+  async getReadings() {
     const details = await this.panasonicApi.loadDeviceDetails(this.accessory.context.device.uniqueId);
 
-    // if you need to return an error to show the device as "Not Responding" in the Home app:
-    // throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
     const operationalZone = details.zoneStatus.find(z => z.operationStatus === 1);
-    console.log('operationalZone', operationalZone);
-    const temp = operationalZone?.temparatureNow;
-    console.log('temp', temp);
-    if(temp === undefined) {
-      throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
-    }
-    return temp;
-  }
+    const temperatureNow = operationalZone?.temparatureNow;
 
-  async getHeatingCoolingState(): Promise<CharacteristicValue> {
-    const details = await this.panasonicApi.loadDeviceDetails(this.accessory.context.device.uniqueId);
+    const isActive = details.operationStatus === 1;
+
 
     // if you need to return an error to show the device as "Not Responding" in the Home app:
     // throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
-    const operationStatus = details.operationStatus;
-    switch(operationStatus) {
-      case 1:
-        return this.platform.Characteristic.CurrentHeatingCoolingState.HEAT;
-      case 2:
+    const operationMode = details.operationMode;
+    const heatingCoolingState = (() => {
+      switch (operationMode) {
+        case 1:
+          return this.platform.Characteristic.CurrentHeaterCoolerState.HEATING;
+        case 2:
+          return this.platform.Characteristic.CurrentHeaterCoolerState.COOLING;
+        case 4:
+          return this.platform.Characteristic.CurrentHeaterCoolerState.IDLE;
+        case 0:
+        default:
+          return this.platform.Characteristic.CurrentHeaterCoolerState.INACTIVE;
+      }
+    })();
+    const ecoModeIsActive = details.specialStatus.find(s => s.specialMode === 1).operationStatus === 1;
+    const comfortModeIsActive = details.specialStatus.find(s => s.specialMode === 2).operationStatus === 1;
+    const outdoorTemperatureNow = details.outdoorNow;
+    const tankTemperatureNow = details.tankStatus[0].temparatureNow;
+    const tankTemperatureSet = details.tankStatus[0].heatSet;
+    const tankHeatingCoolingState = (() => {
+      if (tankTemperatureNow >= tankTemperatureSet) {
         return this.platform.Characteristic.CurrentHeatingCoolingState.COOL;
-      case 4:
-        return this.platform.Characteristic.CurrentHeatingCoolingState.OFF;
-      default:
-        throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
-    }
+      }
+      return this.platform.Characteristic.CurrentHeatingCoolingState.HEAT;
+    })();
+
+
+    return {
+      temperatureNow,
+      heatingCoolingState,
+      outdoorTemperatureNow,
+      tankTemperatureNow,
+      tankTemperatureSet,
+      tankHeatingCoolingState,
+      isActive,
+      ecoModeIsActive,
+      comfortModeIsActive,
+    };
+  }
+
+  async updateReadings() {
+    const {
+      outdoorTemperatureNow, temperatureNow, tankTemperatureNow, tankTemperatureSet, tankHeatingCoolingState, isActive, ecoModeIsActive,
+      comfortModeIsActive,
+    } = await this.getReadings();
+    this.service.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(temperatureNow);
+    this.service.getCharacteristic(this.platform.Characteristic.Active).updateValue(isActive);
+    this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(outdoorTemperatureNow);
+    this.tankService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(tankTemperatureNow);
+    this.tankService.getCharacteristic(this.platform.Characteristic.TargetTemperature).updateValue(tankTemperatureSet);
+    this.tankService.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).updateValue(tankHeatingCoolingState);
+    this.ecoModeService.getCharacteristic(this.platform.Characteristic.On).updateValue(ecoModeIsActive);
+    this.comfortModeService.getCharacteristic(this.platform.Characteristic.On).updateValue(comfortModeIsActive);
+    setTimeout(() => {
+      this.updateReadings();
+    }, 1000);
   }
 
 
