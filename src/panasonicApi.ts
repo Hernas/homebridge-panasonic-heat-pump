@@ -26,7 +26,6 @@ export class PanasonicApi {
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
         'Referer': 'https://aquarea-smart.panasonic.com/',
         'Registration-Id': '',
-        'Cookie': 'selectedGwid=B171178685; selectedDeviceId=008007B171178685001434545313831373030634345373130434345373138313931304300000000; operationDeviceTop=1; JSESSIONID=42F135DDF1E977A12268C37B31BE8700; accessToken=fecdf8fc-0b29-4d1d-9a57-a964f39d4b94',
       },
       'data': `var.loginId=${encodeURIComponent(this.username)}&var.password=${encodeURIComponent(this.password)}&var.inputOmit=true`,
     });
@@ -59,8 +58,6 @@ export class PanasonicApi {
     }
     const selectedDeviceId = response.data.match(/var selectedDeviceId = '(.+?)';/i)[1];
     const selectedDeviceName = response.data.match(/var selectedDeviceName = '(.+?)';/i)[1];
-    console.log('selectedDeviceId', selectedDeviceId);
-    console.log('selectedDeviceName', selectedDeviceName);
     return { selectedDeviceId, selectedDeviceName };
   }
 
@@ -83,7 +80,6 @@ export class PanasonicApi {
       await this.ensureAuthenticated();
       return this.loadDeviceDetails(deviceId, true);
     }
-    console.log(response.data.status[0]);
     return response.data.status[0];
   }
 
@@ -96,6 +92,7 @@ export class PanasonicApi {
         'Content-Type': 'application/json',
         'Cookie': `accessToken=${this.accessToken}; selectedDeviceId=${deviceId};`,
         'Origin': 'https://aquarea-smart.panasonic.com',
+        'Referer': 'https://aquarea-smart.panasonic.com/remote/a2wStatusDisplay',
       },
       'data': JSON.stringify(
         {
@@ -114,7 +111,6 @@ export class PanasonicApi {
       await this.ensureAuthenticated();
       return this.setSpecialStatus(deviceId, status, true);
     }
-    console.log(response.data.status[0]);
   }
 
   async setTankTargetHeat(deviceId: string, temperature: number, retried = false) {
@@ -126,17 +122,16 @@ export class PanasonicApi {
         'Content-Type': 'application/json',
         'Cookie': `accessToken=${this.accessToken}; selectedDeviceId=${deviceId};`,
         'Origin': 'https://aquarea-smart.panasonic.com',
+        'Referer': 'https://aquarea-smart.panasonic.com/remote/a2wStatusDisplay',
       },
       'data': JSON.stringify(
         {
-          'status': [
+          'status':[
             {
-              'deviceGuid': deviceId,
-              'tankStatus': [
-                { heatSet: temperature },
-              ],
-
-            }],
+              'deviceGuid':deviceId,
+              'tankStatus':[{'heatSet':temperature}],
+            },
+          ],
         }),
     });
     if (response.status === 403) {
@@ -146,6 +141,5 @@ export class PanasonicApi {
       await this.ensureAuthenticated();
       return this.setTankTargetHeat(deviceId, temperature, true);
     }
-    console.log(response.data.status[0]);
   }
 }

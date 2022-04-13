@@ -35,6 +35,10 @@ export class PanasonicHeatPumpPlatformAccessory {
     this.service.getCharacteristic(this.platform.Characteristic.CurrentTemperature).onGet(async () => {
       const { temperatureNow } = await this.getReadings();
       return temperatureNow;
+    }).setProps({
+      minValue: 17,
+      maxValue: 38,
+      minStep: 1,
     });
     this.service.getCharacteristic(this.platform.Characteristic.Active).onGet(async () => {
       const { isActive } = await this.getReadings();
@@ -56,18 +60,28 @@ export class PanasonicHeatPumpPlatformAccessory {
     this.tankService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).onGet(async () => {
       const { tankTemperatureNow } = await this.getReadings();
       return tankTemperatureNow;
+    }).setProps({
+      minValue: 35,
+      maxValue: 55,
+      minStep: 1,
     });
     this.tankService.getCharacteristic(this.platform.Characteristic.TargetTemperature).onGet(async () => {
       const { tankTemperatureSet } = await this.getReadings();
       return tankTemperatureSet;
-    });
-    this.tankService.getCharacteristic(this.platform.Characteristic.TargetTemperature).onSet(async (temp: any) => {
+    }).onSet(async (temp: any) => {
       panasonicApi.setTankTargetHeat(this.accessory.context.device.uniqueId, temp);
-
+      this.tankService.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).updateValue(this.platform.Characteristic.CurrentHeaterCoolerState.IDLE);
+    }).setProps({
+      minValue: 35,
+      maxValue: 55,
+      minStep: 1,
     });
     this.tankService.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).onGet(async () => {
       const { tankHeatingCoolingState } = await this.getReadings();
       return tankHeatingCoolingState;
+    });
+    this.tankService.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState).onGet(async () => {
+      return this.platform.Characteristic.TargetHeatingCoolingState.AUTO;
     });
 
 
