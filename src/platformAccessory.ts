@@ -1,4 +1,4 @@
-import { Service, PlatformAccessory, CharacteristicValue, Characteristic } from 'homebridge';
+import { Service, PlatformAccessory } from 'homebridge';
 import { PanasonicApi, PanasonicSpecialStatus } from './panasonicApi';
 
 import { PanasonicHeatPumpHomebridgePlatform } from './platform';
@@ -68,9 +68,10 @@ export class PanasonicHeatPumpPlatformAccessory {
     this.tankService.getCharacteristic(this.platform.Characteristic.TargetTemperature).onGet(async () => {
       const { tankTemperatureSet } = await this.getReadings();
       return tankTemperatureSet;
-    }).onSet(async (temp: any) => {
-      panasonicApi.setTankTargetHeat(this.accessory.context.device.uniqueId, temp);
-      this.tankService.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).updateValue(this.platform.Characteristic.CurrentHeaterCoolerState.IDLE);
+    }).onSet(async (temp: unknown) => {
+      panasonicApi.setTankTargetHeat(this.accessory.context.device.uniqueId, temp as number);
+      this.tankService.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).
+        updateValue(this.platform.Characteristic.CurrentHeaterCoolerState.IDLE);
     }).setProps({
       minValue: 35,
       maxValue: 55,

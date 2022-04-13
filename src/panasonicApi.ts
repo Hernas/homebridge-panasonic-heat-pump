@@ -29,11 +29,8 @@ export class PanasonicApi {
       },
       'data': `var.loginId=${encodeURIComponent(this.username)}&var.password=${encodeURIComponent(this.password)}&var.inputOmit=true`,
     });
-    console.log(response.data);
-    console.log(response.headers);
-    console.log(response.headers['set-cookie']?.map(cookie => cookie?.match(/accessToken=(.+?);/i)?.[1]));
-    this.accessToken = response.headers['set-cookie']?.map(cookie => cookie?.match(/accessToken=(.+?);/i)?.[1]).filter(c => !!c)[0] ?? undefined;
-    console.log(this.accessToken);
+    this.accessToken = response.headers['set-cookie']?.
+      map(cookie => cookie?.match(/accessToken=(.+?);/i)?.[1]).filter(c => !!c)[0] ?? undefined;
   }
 
   async loadDevice(retried = false) {

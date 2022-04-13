@@ -2,7 +2,6 @@ import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, 
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { PanasonicHeatPumpPlatformAccessory } from './platformAccessory';
-import axios from 'axios';
 import { PanasonicApi } from './panasonicApi';
 
 /**
