@@ -1,150 +1,60 @@
-
-<p align="center">
-
-<img src="https://github.com/homebridge/branding/raw/master/logos/homebridge-wordmark-logo-vertical.png" width="150">
-
-</p>
+[![NPM](https://img.shields.io/npm/v/homebridge-panasonic-heat-pump)](https://npmjs.org/package/homebridge-panasonic-heat-pump)
 
 
-# Homebridge Platform Plugin Template
+# homebridge-panasonic-heat-pump
+Panasonic Heat Pump plugin for [HomeBridge](https://github.com/nfarina/homebridge) using the Panasonic *Comfort Cloud* API to expose Panasonic Heat Pumps to Apples HomeKit.
 
-This is a template Homebridge platform plugin and can be used as a base to help you get started developing your own plugin.
+## Things to know
+* Supports only a single Heat Pump per Comfort Cloud account
+* Supports *AQUAREA* Heat Pumps only.
 
-This template should be used in conjunction with the [developer documentation](https://developers.homebridge.io/). A full list of all supported service types, and their characteristics is available on this site.
+## Getting started
 
-## Clone As Template
+### Supported devices
+Panasonic AQUAREA that has a cloud adapter installed
 
-Click the link below to create a new GitHub Repository using this template, or click the *Use This Template* button above.
+### Setup the app
+1. Download, install & setup the *Panasonic Comfort Cloud* app on your mobile device
+2. Create a login & add your Heat Pump to the *Comfort Cloud*
 
-<span align="center">
+> **Caution!** It is recommended to setup another login for the *Comfort Cloud* and share your home to that login, as opposed to using your regular login for this plugin. Otherwise the *Comfort Cloud* app will log you out each time that you use this plugin (as only one user can be logged into the *Comfort Cloud* per login). If you plan to use multiple accessories, create separate accounts for every accessory. 
 
-### [Create New Repository From Template](https://github.com/homebridge/homebridge-plugin-template/generate)
+3. Share your login to another user setup specifically for HomeBridge.
+   For instructions on how to do this, see [Sharing Panasonic heatpump with another account](README.md#Sharing-Panasonic-heatpump-with-another-account) section below.
 
-</span>
-
-## Setup Development Environment
-
-To develop Homebridge plugins you must have Node.js 12 or later installed, and a modern code editor such as [VS Code](https://code.visualstudio.com/). This plugin template uses [TypeScript](https://www.typescriptlang.org/) to make development easier and comes with pre-configured settings for [VS Code](https://code.visualstudio.com/) and ESLint. If you are using VS Code install these extensions:
-
-* [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
-
-## Install Development Dependencies
-
-Using a terminal, navigate to the project folder and run this command to install the development dependencies:
-
-```
-npm install
+### Sample configuration
+```{
+        "platform": "PanasonicHeatPumpHomebridgePlugin",
+		"email": "<YOUR_EMAIL_HERE>",
+		"password": "<YOUR_PASSWORD_HERE>"
+    }
 ```
 
-## Update package.json
+### Sharing Panasonic heatpump with another account
+Panasonic really needs to improve this experience, nonetheless, here it is:
+1. Create a new panasonic account here: [Panasonic ID Registration](https://csapl.pcpf.panasonic.com/Account/Register001?lang=en)
+2. Verify email using the link sent to the email id specified
+3. Sign into the Panasonic Comfort Cloud app on your smart device using the newly created Panasonic ID
+4. Agree to the terms and conditions displayed in app
+5. Agree to the privacy notice displayed in app
+6. You should now be on the home screen of the App
+7. Click the "+" button
+8. Choose "Heat Pump"
+9. Use the device ID from the original device package
+10. Enter the device password you used when originally setting up the device
+11. In step 3: Enter a name for the heatpump, a message="HomeBridge account" and note="HomeBridge account")
+12. Click Send Request
+13. Log out of the app
+14. Sign in with the original email account in the Panasonic Comfort Cloud App
+15. Click the Device you've requested sharing for
+16. Click the hamburger menu and expand the "Owner" menu item, click "User list"
+17. You should now see an id with a waiting approval status
+18. Click the "Waiting Approval" button
+19. Select the "Allow both monitoring and controlling heat pump" permission
+20. Confirm
+21. The waiting for approval button should have disappeared and replaced with a blue check icon
+22. Use the newly created id in the homekit accessory configuration
 
-Open the [`package.json`](./package.json) and change the following attributes:
-
-* `name` - this should be prefixed with `homebridge-` or `@username/homebridge-` and contain no spaces or special characters apart from a dashes
-* `displayName` - this is the "nice" name displayed in the Homebridge UI
-* `repository.url` - Link to your GitHub repo
-* `bugs.url` - Link to your GitHub repo issues page
-
-When you are ready to publish the plugin you should set `private` to false, or remove the attribute entirely.
-
-## Update Plugin Defaults
-
-Open the [`src/settings.ts`](./src/settings.ts) file and change the default values:
-
-* `PLATFORM_NAME` - Set this to be the name of your platform. This is the name of the platform that users will use to register the plugin in the Homebridge `config.json`.
-* `PLUGIN_NAME` - Set this to be the same name you set in the [`package.json`](./package.json) file. 
-
-Open the [`config.schema.json`](./config.schema.json) file and change the following attribute:
-
-* `pluginAlias` - set this to match the `PLATFORM_NAME` you defined in the previous step.
-
-## Build Plugin
-
-TypeScript needs to be compiled into JavaScript before it can run. The following command will compile the contents of your [`src`](./src) directory and put the resulting code into the `dist` folder.
-
-```
-npm run build
-```
-
-## Link To Homebridge
-
-Run this command so your global install of Homebridge can discover the plugin in your development environment:
-
-```
-npm link
-```
-
-You can now start Homebridge, use the `-D` flag so you can see debug log messages in your plugin:
-
-```
-homebridge -D
-```
-
-## Watch For Changes and Build Automatically
-
-If you want to have your code compile automatically as you make changes, and restart Homebridge automatically between changes you can run:
-
-```
-npm run watch
-```
-
-This will launch an instance of Homebridge in debug mode which will restart every time you make a change to the source code. It will load the config stored in the default location under `~/.homebridge`. You may need to stop other running instances of Homebridge while using this command to prevent conflicts. You can adjust the Homebridge startup command in the [`nodemon.json`](./nodemon.json) file.
-
-## Customise Plugin
-
-You can now start customising the plugin template to suit your requirements.
-
-* [`src/platform.ts`](./src/platform.ts) - this is where your device setup and discovery should go.
-* [`src/platformAccessory.ts`](./src/platformAccessory.ts) - this is where your accessory control logic should go, you can rename or create multiple instances of this file for each accessory type you need to implement as part of your platform plugin. You can refer to the [developer documentation](https://developers.homebridge.io/) to see what characteristics you need to implement for each service type.
-* [`config.schema.json`](./config.schema.json) - update the config schema to match the config you expect from the user. See the [Plugin Config Schema Documentation](https://developers.homebridge.io/#/config-schema).
-
-## Versioning Your Plugin
-
-Given a version number `MAJOR`.`MINOR`.`PATCH`, such as `1.4.3`, increment the:
-
-1. **MAJOR** version when you make breaking changes to your plugin,
-2. **MINOR** version when you add functionality in a backwards compatible manner, and
-3. **PATCH** version when you make backwards compatible bug fixes.
-
-You can use the `npm version` command to help you with this:
-
-```bash
-# major update / breaking changes
-npm version major
-
-# minor update / new features
-npm version update
-
-# patch / bugfixes
-npm version patch
-```
-
-## Publish Package
-
-When you are ready to publish your plugin to [npm](https://www.npmjs.com/), make sure you have removed the `private` attribute from the [`package.json`](./package.json) file then run:
-
-```
-npm publish
-```
-
-If you are publishing a scoped plugin, i.e. `@username/homebridge-xxx` you will need to add `--access=public` to command the first time you publish.
-
-#### Publishing Beta Versions
-
-You can publish *beta* versions of your plugin for other users to test before you release it to everyone.
-
-```bash
-# create a new pre-release version (eg. 2.1.0-beta.1)
-npm version prepatch --preid beta
-
-# publsh to @beta
-npm publish --tag=beta
-```
-
-Users can then install the  *beta* version by appending `@beta` to the install command, for example:
-
-```
-sudo npm install -g homebridge-example-plugin@beta
-```
-
-
+### Legal
+* Licensed under [MIT](LICENSE)
+* This is not an official plug-in and is not affiliated with Panasonic in any way
