@@ -24,8 +24,8 @@ export class PanasonicHeatPumpPlatformAccessory {
     // set accessory information
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Panasonic')
-      .setCharacteristic(this.platform.Characteristic.Model, 'Default-Model')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, 'Default-Serial');
+      .setCharacteristic(this.platform.Characteristic.Model, 'Aquarea')
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, 'n/a');
 
     // FLOOR
     this.service = this.accessory.getService('Floors')
@@ -92,6 +92,9 @@ export class PanasonicHeatPumpPlatformAccessory {
     this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).onGet(async () => {
       const { outdoorTemperatureNow } = await this.getReadings();
       return outdoorTemperatureNow;
+    });
+    this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.StatusActive).onGet(async () => {
+      return true;
     });
 
 
@@ -188,6 +191,7 @@ export class PanasonicHeatPumpPlatformAccessory {
     this.service.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(temperatureNow);
     this.service.getCharacteristic(this.platform.Characteristic.Active).updateValue(isActive);
     this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(outdoorTemperatureNow);
+    this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.StatusActive).updateValue(true);
     this.tankService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(tankTemperatureNow);
     this.tankService.getCharacteristic(this.platform.Characteristic.TargetTemperature).updateValue(tankTemperatureSet);
     this.tankService.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).updateValue(tankHeatingCoolingState);
