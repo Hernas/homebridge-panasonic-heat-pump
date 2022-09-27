@@ -6,6 +6,12 @@ export enum PanasonicSpecialStatus {
     Comfort = 2
 }
 
+export enum PanasonicTargetOperationMode {
+  Off = 0,
+  Heating = 2,
+  Cooling = 3,
+  Auto = 8
+}
 async function wait(time: number) {
   return new Promise(resolve => setTimeout(resolve, time));
 }
@@ -149,8 +155,129 @@ export class PanasonicApi {
       if (retried) {
         throw new Error('Cannot authenticate');
       }
-      await this.ensureAuthenticated();
+      await this.ensureAuthenticated(true);
       return this.setTankTargetHeat(deviceId, temperature, true);
+    }
+  }
+
+  async setOperationMode(deviceId: string, operationMode: PanasonicTargetOperationMode, retried = false) {
+    await this.ensureAuthenticated();
+    const response = await axios({
+      'method': 'POST',
+      'url': `https://aquarea-smart.panasonic.com/remote/v1/api/devices/${deviceId}`,
+      'headers': {
+        'Content-Type': 'application/json',
+        'Cookie': `accessToken=${this.accessToken}; selectedDeviceId=${deviceId};`,
+        'Origin': 'https://aquarea-smart.panasonic.com',
+        'Referer': 'https://aquarea-smart.panasonic.com/remote/a2wStatusDisplay',
+      },
+      'data': JSON.stringify(
+        {
+          'status':[
+            {
+              'deviceGuid':deviceId,
+              'operationMode':operationMode,
+              'zoneStatus': [{zoneId: 1, 'operationStatus':operationMode === PanasonicTargetOperationMode.Off ? 0 : 1}],
+            },
+          ],
+        }),
+    });
+    if (response.status === 403) {
+      if (retried) {
+        throw new Error('Cannot authenticate');
+      }
+      await this.ensureAuthenticated(true);
+      return this.setOperationMode(deviceId, operationMode, true);
+    }
+  }
+
+  async setZoneTemp(deviceId: string, temp: number, type: 'cool' | 'heat' | 'eco' | 'comfort', retried = false) {
+    await this.ensureAuthenticated();
+    const response = await axios({
+      'method': 'POST',
+      'url': `https://aquarea-smart.panasonic.com/remote/v1/api/devices/${deviceId}`,
+      'headers': {
+        'Content-Type': 'application/json',
+        'Cookie': `accessToken=${this.accessToken}; selectedDeviceId=${deviceId};`,
+        'Origin': 'https://aquarea-smart.panasonic.com',
+        'Referer': 'https://aquarea-smart.panasonic.com/remote/a2wStatusDisplay',
+      },
+      'data': JSON.stringify(
+        {
+          'status':[
+            {
+              'deviceGuid':deviceId,
+              'zoneStatus': [{zoneId: 1, [`${type}Set`]: temp}],
+            },
+          ],
+        }),
+    });
+    if (response.status === 403) {
+      if (retried) {
+        throw new Error('Cannot authenticate');
+      }
+      await this.ensureAuthenticated(true);
+      return this.setZoneTemp(deviceId, temp, type, true);
+    }
+  }
+
+  async setOperationStatus(deviceId: string, isOn: boolean, retried = false) {
+    await this.ensureAuthenticated();
+    const response = await axios({
+      'method': 'POST',
+      'url': `https://aquarea-smart.panasonic.com/remote/v1/api/devices/${deviceId}`,
+      'headers': {
+        'Content-Type': 'application/json',
+        'Cookie': `accessToken=${this.accessToken}; selectedDeviceId=${deviceId};`,
+        'Origin': 'https://aquarea-smart.panasonic.com',
+        'Referer': 'https://aquarea-smart.panasonic.com/remote/a2wStatusDisplay',
+      },
+      'data': JSON.stringify(
+        {
+          'status':[
+            {
+              'deviceGuid':deviceId,
+              'operationStatus':isOn ? 1 : 0,
+            },
+          ],
+        }),
+    });
+    if (response.status === 403) {
+      if (retried) {
+        throw new Error('Cannot authenticate');
+      }
+      await this.ensureAuthenticated(true);
+      return this.setOperationStatus(deviceId, isOn, true);
+    }
+  }
+
+  async setTankStatus(deviceId: string, isOn: boolean, retried = false) {
+    await this.ensureAuthenticated();
+    const response = await axios({
+      'method': 'POST',
+      'url': `https://aquarea-smart.panasonic.com/remote/v1/api/devices/${deviceId}`,
+      'headers': {
+        'Content-Type': 'application/json',
+        'Cookie': `accessToken=${this.accessToken}; selectedDeviceId=${deviceId};`,
+        'Origin': 'https://aquarea-smart.panasonic.com',
+        'Referer': 'https://aquarea-smart.panasonic.com/remote/a2wStatusDisplay',
+      },
+      'data': JSON.stringify(
+        {
+          'status':[
+            {
+              'deviceGuid':deviceId,
+              'tankStatus':[{'operationStatus':isOn ? 1 : 0}],
+            },
+          ],
+        }),
+    });
+    if (response.status === 403) {
+      if (retried) {
+        throw new Error('Cannot authenticate');
+      }
+      await this.ensureAuthenticated(true);
+      return this.setTankStatus(deviceId, isOn, true);
     }
   }
 }
