@@ -13,9 +13,10 @@ describe('PanasonicApi', () => {
     });
 
     const deviceDetails = await panasonicApi.loadDeviceDetails(device.selectedDeviceId);
-    // console.log(JSON.stringify(deviceDetails, undefined, 4));
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify(deviceDetails, undefined, 4));
     expect(deviceDetails.deviceGuid).toEqual(device.selectedDeviceId);
 
-    await panasonicApi.setZoneTemp(device.selectedDeviceId, 5, 'heat');
+    // await panasonicApi.setZoneTemp(device.selectedDeviceId, 5, 'heat');
   });
 });

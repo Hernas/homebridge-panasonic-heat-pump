@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Service, PlatformAccessory } from 'homebridge';
 import { PanasonicApi, PanasonicSpecialStatus, PanasonicTargetOperationMode } from './panasonicApi';
 
@@ -34,6 +35,8 @@ export class PanasonicHeatPumpPlatformAccessory {
       targetTempMax: number;
       tempType: 'heat' | 'cool' | 'eco' | 'comfort';
   }> | undefined;
+
+  private timeoutId: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
     private readonly platform: PanasonicHeatPumpHomebridgePlatform,
@@ -85,6 +88,7 @@ export class PanasonicHeatPumpPlatformAccessory {
           adjustedTemp, readings.tempType);
         await this.getReadings(true);
       }).onGet(async () => {
+        console.log('Floor Heating get temp');
         const readings = await this.getReadings();
         return readings.targetTempSet + readings.temperatureNow;
       });
@@ -168,15 +172,12 @@ export class PanasonicHeatPumpPlatformAccessory {
     }).onGet(async () => {
       return (await this.getReadings()).comfortModeIsActive;
     });
-
-    this.updateReadings();
   }
 
   async getReadings(force = false) {
-    if(this.lastDetails && !force) {
-      return this.lastDetails;
+    if(force) {
+      this.lastDetails = undefined;
     }
-
     const loadReadings = async () => {
       const details = await this.panasonicApi.loadDeviceDetails(this.accessory.context.device.uniqueId);
 
@@ -284,51 +285,65 @@ export class PanasonicHeatPumpPlatformAccessory {
         tempType,
       };
     };
-    const readingsPromise = loadReadings();
-    this.lastDetails = readingsPromise;
-    return readingsPromise;
+    try {
+      // Lets make sure we wont get update from the setTimeout scheduled before we fetch new data
+      if(this.timeoutId) {
+        clearTimeout(this.timeoutId);
+      }
+      if(this.lastDetails) {
+        return this.lastDetails;
+      }
+      const readingsPromise = loadReadings();
+      this.lastDetails = readingsPromise;
+      return await readingsPromise;
+    } finally {
+      this.refreshTimeout();
+    }
   }
 
   async updateReadings() {
-    try {
+    const {
+      outdoorTemperatureNow, temperatureNow, tankTemperatureNow, tankTemperatureSet, tankHeatingCoolingState, isActive, ecoModeIsActive,
+      comfortModeIsActive, tankTemperatureMax, tankTemperatureMin, tankTargetHeatingCoolingState, heatingCoolingState,
+      targetHeatingCoolingState, targetTempSet, targetTempMax, targetTempMin,
+    } = await this.getReadings(true);
 
-      const {
-        outdoorTemperatureNow, temperatureNow, tankTemperatureNow, tankTemperatureSet, tankHeatingCoolingState, isActive, ecoModeIsActive,
-        comfortModeIsActive, tankTemperatureMax, tankTemperatureMin, tankTargetHeatingCoolingState, heatingCoolingState,
-        targetHeatingCoolingState, targetTempSet, targetTempMax, targetTempMin,
-      } = await this.getReadings(true);
+    console.log('updateReadings');
 
+    this.service.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(temperatureNow);
+    this.service.getCharacteristic(this.platform.Characteristic.Active).updateValue(isActive);
+    this.service.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).updateValue(heatingCoolingState);
+    this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState).updateValue(targetHeatingCoolingState);
+    this.service.getCharacteristic(this.platform.Characteristic.TargetTemperature).setProps({
+      minValue: targetTempMin + temperatureNow,
+      maxValue: targetTempMax + temperatureNow,
+      minStep: 1,
+    }).updateValue(targetTempSet + temperatureNow);
+    // As heat pumps take -5 up to +5 target temp and HomeKit does not support it, we have to adjust by tempNow
 
-      this.service.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(temperatureNow);
-      this.service.getCharacteristic(this.platform.Characteristic.Active).updateValue(isActive);
-      this.service.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).updateValue(heatingCoolingState);
-      this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState).updateValue(targetHeatingCoolingState);
-      this.service.getCharacteristic(this.platform.Characteristic.TargetTemperature).setProps({
-        minValue: targetTempMin + temperatureNow,
-        maxValue: targetTempMax + temperatureNow,
-        minStep: 1,
-      }).updateValue(targetTempSet + temperatureNow);
-      // As heat pumps take -5 up to +5 target temp and HomeKit does not support it, we have to adjust by tempNow
+    this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(outdoorTemperatureNow);
+    this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.StatusActive).updateValue(true);
 
-      this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(outdoorTemperatureNow);
-      this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.StatusActive).updateValue(true);
+    this.tankService.getCharacteristic(this.platform.Characteristic.TargetTemperature).setProps({
+      minValue: tankTemperatureMin,
+      maxValue: tankTemperatureMax,
+      minStep: 1,
+    }).updateValue(tankTemperatureSet);
+    this.tankService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(tankTemperatureNow);
+    this.tankService.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).updateValue(tankHeatingCoolingState);
+    this.tankService.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState).updateValue(tankTargetHeatingCoolingState);
 
-      this.tankService.getCharacteristic(this.platform.Characteristic.TargetTemperature).setProps({
-        minValue: tankTemperatureMin,
-        maxValue: tankTemperatureMax,
-        minStep: 1,
-      }).updateValue(tankTemperatureSet);
-      this.tankService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(tankTemperatureNow);
-      this.tankService.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).updateValue(tankHeatingCoolingState);
-      this.tankService.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState).updateValue(tankTargetHeatingCoolingState);
+    this.ecoModeService.getCharacteristic(this.platform.Characteristic.On).updateValue(ecoModeIsActive);
+    this.comfortModeService.getCharacteristic(this.platform.Characteristic.On).updateValue(comfortModeIsActive);
+  }
 
-      this.ecoModeService.getCharacteristic(this.platform.Characteristic.On).updateValue(ecoModeIsActive);
-      this.comfortModeService.getCharacteristic(this.platform.Characteristic.On).updateValue(comfortModeIsActive);
-    } finally {
-      setTimeout(() => {
-        this.updateReadings();
-      }, 1000);
+  private refreshTimeout() {
+    if(this.timeoutId) {
+      clearTimeout(this.timeoutId);
     }
+    this.timeoutId = setTimeout(() => {
+      this.updateReadings();
+    }, 5000);
   }
 
 
