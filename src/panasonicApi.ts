@@ -5,6 +5,11 @@ export enum PanasonicSpecialStatus {
     Eco = 1,
     Comfort = 2
 }
+
+async function wait(time: number) {
+  return new Promise(resolve => setTimeout(resolve, time));
+}
+
 export class PanasonicApi {
   private username;
   private password;
@@ -15,8 +20,8 @@ export class PanasonicApi {
     this.password = password;
   }
 
-  private async ensureAuthenticated() {
-    if (this.accessToken) {
+  private async ensureAuthenticated(force = false, retries = 0) {
+    if (this.accessToken && !force) {
       return;
     }
     const response = await axios({
@@ -31,6 +36,13 @@ export class PanasonicApi {
     });
     this.accessToken = response.headers['set-cookie']?.
       map(cookie => cookie?.match(/accessToken=(.+?);/i)?.[1]).filter(c => !!c)[0] ?? undefined;
+    if(!this.accessToken) {
+      if(retries > 5) {
+        throw new Error('Could not authenticate');
+      }
+      await wait(1000);
+      this.ensureAuthenticated(force, retries + 1);
+    }
   }
 
   async loadDevice(retried = false) {
@@ -50,7 +62,8 @@ export class PanasonicApi {
       if (retried) {
         throw new Error('Cannot authenticate');
       }
-      await this.ensureAuthenticated();
+      await wait(1000);
+      await this.ensureAuthenticated(true);
       return this.loadDevice(true);
     }
     const selectedDeviceId = response.data.match(/var selectedDeviceId = '(.+?)';/i)[1];
@@ -63,7 +76,7 @@ export class PanasonicApi {
 
     const response = await axios({
       'method': 'GET',
-      'url': `https://aquarea-smart.panasonic.com/remote/v1/api/devices/${deviceId}`,
+      'url': `https://aquarea-smart.panasonic.com/remote/v1/api/devices/${deviceId}?var.deviceDirect=1`,
       'headers': {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Cookie': `accessToken=${this.accessToken};`,
@@ -74,7 +87,8 @@ export class PanasonicApi {
       if (retried) {
         throw new Error('Cannot authenticate');
       }
-      await this.ensureAuthenticated();
+      await wait(1000);
+      await this.ensureAuthenticated(true);
       return this.loadDeviceDetails(deviceId, true);
     }
     return response.data.status[0];
@@ -105,7 +119,7 @@ export class PanasonicApi {
       if (retried) {
         throw new Error('Cannot authenticate');
       }
-      await this.ensureAuthenticated();
+      await this.ensureAuthenticated(true);
       return this.setSpecialStatus(deviceId, status, true);
     }
   }
