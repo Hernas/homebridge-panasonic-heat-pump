@@ -12,7 +12,7 @@ export enum PanasonicTargetOperationMode {
   Cooling = 3,
   Auto = 8
 }
-async function wait(time: number) {
+export async function wait(time: number) {
   return new Promise(resolve => setTimeout(resolve, time));
 }
 

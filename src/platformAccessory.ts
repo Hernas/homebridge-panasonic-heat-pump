@@ -1,6 +1,5 @@
-/* eslint-disable no-console */
 import { Service, PlatformAccessory } from 'homebridge';
-import { PanasonicApi, PanasonicSpecialStatus, PanasonicTargetOperationMode } from './panasonicApi';
+import { PanasonicApi, PanasonicSpecialStatus, PanasonicTargetOperationMode, wait } from './panasonicApi';
 
 import { PanasonicHeatPumpHomebridgePlatform } from './platform';
 
@@ -82,13 +81,10 @@ export class PanasonicHeatPumpPlatformAccessory {
       .onSet(async (temp: unknown) => {
         const readings = await this.getReadings();
         const adjustedTemp = (parseInt(temp as string)) - readings.temperatureNow;
-        // eslint-disable-next-line no-console
-        console.log(`Setting Floor Heating temp[${readings.tempType}] to: ${adjustedTemp}`);
         this.panasonicApi.setZoneTemp(this.accessory.context.device.uniqueId,
           adjustedTemp, readings.tempType);
         await this.getReadings(true);
       }).onGet(async () => {
-        console.log('Floor Heating get temp');
         const readings = await this.getReadings();
         return readings.targetTempSet + readings.temperatureNow;
       });
@@ -110,14 +106,14 @@ export class PanasonicHeatPumpPlatformAccessory {
         this.tankService.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
           .updateValue(this.platform.Characteristic.TargetHeatingCoolingState.OFF);
         this.panasonicApi.setTankStatus(this.accessory.context.device.uniqueId, false);
-        await this.getReadings(true);
+        await this.getReadings(true, true);
         return;
       }
       // turn on water heating
       this.tankService.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
         .updateValue(this.platform.Characteristic.TargetHeatingCoolingState.HEAT);
       this.panasonicApi.setTankStatus(this.accessory.context.device.uniqueId, true);
-      await this.getReadings(true);
+      await this.getReadings(true, true);
     }).onGet(async () => {
       return (await this.getReadings()).tankTargetHeatingCoolingState;
     });
@@ -152,7 +148,7 @@ export class PanasonicHeatPumpPlatformAccessory {
       } else {
         panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.None);
       }
-      await this.getReadings(true);
+      await this.getReadings(true, true);
     }).onGet(async () => {
       return (await this.getReadings()).ecoModeIsActive;
     });
@@ -168,17 +164,20 @@ export class PanasonicHeatPumpPlatformAccessory {
       } else {
         panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.None);
       }
-      await this.getReadings(true);
+      await this.getReadings(true, true);
     }).onGet(async () => {
       return (await this.getReadings()).comfortModeIsActive;
     });
   }
 
-  async getReadings(force = false) {
+  async getReadings(force = false, afterSet = false) {
     if(force) {
       this.lastDetails = undefined;
     }
     const loadReadings = async () => {
+      if(afterSet) {
+        await wait(5000);
+      }
       const details = await this.panasonicApi.loadDeviceDetails(this.accessory.context.device.uniqueId);
 
       const operationalZone = details.zoneStatus.find(z => z.temparatureNow !== null);
@@ -307,8 +306,6 @@ export class PanasonicHeatPumpPlatformAccessory {
       comfortModeIsActive, tankTemperatureMax, tankTemperatureMin, tankTargetHeatingCoolingState, heatingCoolingState,
       targetHeatingCoolingState, targetTempSet, targetTempMax, targetTempMin,
     } = await this.getReadings(true);
-
-    console.log('updateReadings');
 
     this.service.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(temperatureNow);
     this.service.getCharacteristic(this.platform.Characteristic.Active).updateValue(isActive);
