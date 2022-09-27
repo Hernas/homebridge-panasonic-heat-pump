@@ -89,7 +89,7 @@ export class PanasonicApi {
         'Origin': 'https://aquarea-smart.panasonic.com',
       },
     });
-    if (response.data.errorCode > 0) {
+    if (response.data.errorCode > 0 || !response.data.status || !response.data.status[0]) {
       if (retried) {
         throw new Error('Cannot authenticate');
       }

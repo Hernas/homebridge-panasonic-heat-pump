@@ -45,7 +45,7 @@ export class PanasonicHeatPumpPlatformAccessory {
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Panasonic')
       .setCharacteristic(this.platform.Characteristic.Model, 'Aquarea')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, this.accessory.context.device.uniqueId);
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, this.accessory.UUID);
 
     // FLOOR
     this.service = this.accessory.getService('Floor Heating')
@@ -78,8 +78,11 @@ export class PanasonicHeatPumpPlatformAccessory {
     this.service.getCharacteristic(this.platform.Characteristic.TargetTemperature)
       .onSet(async (temp: unknown) => {
         const readings = await this.getReadings();
+        const adjustedTemp = (parseInt(temp as string)) - readings.temperatureNow;
+        // eslint-disable-next-line no-console
+        console.log(`Setting Floor Heating temp[${readings.tempType}] to: ${adjustedTemp}`);
         this.panasonicApi.setZoneTemp(this.accessory.context.device.uniqueId,
-          (temp as number) - readings.temperatureNow, readings.temperatureNow);
+          adjustedTemp, readings.tempType);
         await this.getReadings(true);
       }).onGet(async () => {
         const readings = await this.getReadings();
