@@ -3,11 +3,25 @@ import { PanasonicApi, PanasonicSpecialStatus, PanasonicTargetOperationMode, wai
 
 import { PanasonicHeatPumpHomebridgePlatform } from './platform';
 
-/**
- * Platform Accessory
- * An instance of this class is created for each accessory your platform registers
- * Each accessory may expose multiple services of different service types.
- */
+type Details = {
+  temperatureNow: number;
+    heatingCoolingState: number;
+    targetHeatingCoolingState: number;
+    outdoorTemperatureNow: number;
+    tankTemperatureNow: number;
+    tankTemperatureSet: number;
+    tankHeatingCoolingState: number;
+    tankTargetHeatingCoolingState: number;
+    isActive: boolean;
+    ecoModeIsActive: boolean;
+    comfortModeIsActive: boolean;
+    tankTemperatureMax: number;
+    tankTemperatureMin: number;
+    targetTempSet: number;
+    targetTempMin: number;
+    targetTempMax: number;
+    tempType: 'heat' | 'cool' | 'eco' | 'comfort';
+};
 export class PanasonicHeatPumpPlatformAccessory {
   private service: Service;
   private outdoorTemperatureService: Service;
@@ -17,26 +31,8 @@ export class PanasonicHeatPumpPlatformAccessory {
   private readonly isCoolModeEnabled: boolean;
   private readonly hasWaterTank: boolean;
 
-  private lastDetails: Promise<{
-    temperatureNow: number;
-      heatingCoolingState: number;
-      targetHeatingCoolingState: number;
-      outdoorTemperatureNow: number;
-      tankTemperatureNow: number;
-      tankTemperatureSet: number;
-      tankHeatingCoolingState: number;
-      tankTargetHeatingCoolingState: number;
-      isActive: boolean;
-      ecoModeIsActive: boolean;
-      comfortModeIsActive: boolean;
-      tankTemperatureMax: number;
-      tankTemperatureMin: number;
-      targetTempSet: number;
-      targetTempMin: number;
-      targetTempMax: number;
-      tempType: 'heat' | 'cool' | 'eco' | 'comfort';
-  }> | undefined;
-
+  private lastDetailsPromise: Promise<Details> | undefined;
+  private lastDetails: Details | undefined;
   private timeoutId: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
@@ -87,15 +83,26 @@ export class PanasonicHeatPumpPlatformAccessory {
           this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
             .updateValue(this.platform.Characteristic.TargetHeatingCoolingState.HEAT);
         }
-        this.panasonicApi.setOperationMode(this.accessory.context.device.uniqueId, operationMode);
+        try {
+          this.panasonicApi.setOperationMode(this.accessory.context.device.uniqueId, operationMode);
+        } catch(e) {
+          this.platform.log.error(`Could not set operation mode[${this.accessory.context.device.uniqueId}][${operationMode}]: ${e}`);
+        }
         await this.getReadings(true);
       }).onGet(async () => (await this.getReadings()).targetHeatingCoolingState);
     this.service.getCharacteristic(this.platform.Characteristic.TargetTemperature)
       .onSet(async (temp: unknown) => {
         const readings = await this.getReadings();
         const adjustedTemp = (parseInt(temp as string)) - readings.temperatureNow;
-        this.panasonicApi.setZoneTemp(this.accessory.context.device.uniqueId,
-          adjustedTemp, readings.tempType);
+
+        try {
+          this.panasonicApi.setZoneTemp(this.accessory.context.device.uniqueId,
+            adjustedTemp, readings.tempType);
+        } catch(e) {
+          this.platform.log.error(
+            `Could not set zone temp[${this.accessory.context.device.uniqueId}][${adjustedTemp}][${readings.tempType}]: ${e}`,
+          );
+        }
         await this.getReadings(true);
       }).onGet(async () => {
         const readings = await this.getReadings();
@@ -121,10 +128,22 @@ export class PanasonicHeatPumpPlatformAccessory {
       this.accessory.addService(this.platform.Service.Switch, 'Eco Mode', 'eco-mode');
     this.ecoModeService.getCharacteristic(this.platform.Characteristic.On).onSet(async (value) => {
       if(value) {
-        panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.Eco);
+        try {
+          panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.Eco);
+        } catch(e) {
+          this.platform.log.error(
+            `Could not set special status[${this.accessory.context.device.uniqueId}][${PanasonicSpecialStatus.Eco}]: ${e}`,
+          );
+        }
         this.comfortModeService.getCharacteristic(this.platform.Characteristic.On).updateValue(false);
       } else {
-        panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.None);
+        try {
+          panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.None);
+        } catch(e) {
+          this.platform.log.error(
+            `Could not set special status[${this.accessory.context.device.uniqueId}][${PanasonicSpecialStatus.None}]: ${e}`,
+          );
+        }
       }
       await this.getReadings(true, true);
     }).onGet(async () => {
@@ -137,10 +156,22 @@ export class PanasonicHeatPumpPlatformAccessory {
       this.accessory.addService(this.platform.Service.Switch, 'Comfort Mode', 'comfort-mode');
     this.comfortModeService.getCharacteristic(this.platform.Characteristic.On).onSet(async (value) => {
       if(value) {
-        panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.Comfort);
+        try {
+          panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.Comfort);
+        } catch(e) {
+          this.platform.log.error(
+            `Could not set special status[${this.accessory.context.device.uniqueId}][${PanasonicSpecialStatus.Comfort}]: ${e}`,
+          );
+        }
         this.ecoModeService.getCharacteristic(this.platform.Characteristic.On).updateValue(false);
       } else {
-        panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.None);
+        try {
+          panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.None);
+        } catch(e) {
+          this.platform.log.error(
+            `Could not set special status[${this.accessory.context.device.uniqueId}][${PanasonicSpecialStatus.None}]: ${e}`,
+          );
+        }
       }
       await this.getReadings(true, true);
     }).onGet(async () => {
@@ -148,9 +179,9 @@ export class PanasonicHeatPumpPlatformAccessory {
     });
   }
 
-  async getReadings(force = false, afterSet = false) {
+  async getReadings(force = false, afterSet = false): Promise<Details> {
     if(force) {
-      this.lastDetails = undefined;
+      this.lastDetailsPromise = undefined;
     }
     const loadReadings = async () => {
       if(afterSet) {
@@ -267,12 +298,41 @@ export class PanasonicHeatPumpPlatformAccessory {
       if(this.timeoutId) {
         clearTimeout(this.timeoutId);
       }
+      if(this.lastDetailsPromise) {
+        return this.lastDetailsPromise;
+      }
+      const readingsPromise = loadReadings().then(details => {
+        this.lastDetails = details;
+        return details;
+      });
+      this.lastDetailsPromise = readingsPromise;
+      return await readingsPromise;
+    } catch(e) {
+      this.platform.log.error(
+        `Could not fetch details of device[${this.accessory.context.device.uniqueId}] ${e}`,
+      );
       if(this.lastDetails) {
         return this.lastDetails;
       }
-      const readingsPromise = loadReadings();
-      this.lastDetails = readingsPromise;
-      return await readingsPromise;
+      return {
+        temperatureNow: 0,
+        heatingCoolingState: 0,
+        targetHeatingCoolingState: 0,
+        outdoorTemperatureNow: 0,
+        tankTemperatureNow: 0,
+        tankTemperatureSet: 0,
+        tankHeatingCoolingState: 0,
+        tankTargetHeatingCoolingState: 0,
+        isActive: false,
+        ecoModeIsActive: false,
+        comfortModeIsActive: false,
+        tankTemperatureMax: 0,
+        tankTemperatureMin: 0,
+        targetTempSet: 0,
+        targetTempMin: 0,
+        targetTempMax: 0,
+        tempType: 'heat',
+      };
     } finally {
       this.refreshTimeout();
     }
@@ -342,7 +402,13 @@ export class PanasonicHeatPumpPlatformAccessory {
       || this.accessory.addService(this.platform.Service.Thermostat, 'Water', 'water');
     this.tankService.setCharacteristic(this.platform.Characteristic.Name, 'Water');
     this.tankService.getCharacteristic(this.platform.Characteristic.TargetTemperature).onSet(async (temp: unknown) => {
-      this.panasonicApi.setTankTargetHeat(this.accessory.context.device.uniqueId, temp as number);
+      try {
+        this.panasonicApi.setTankTargetHeat(this.accessory.context.device.uniqueId, temp as number);
+      } catch(e) {
+        this.platform.log.error(
+          `Could not set tank target heat[${this.accessory.context.device.uniqueId}][${temp}]: ${e}`,
+        );
+      }
       await this.getReadings(true);
     }).onGet(async () => {
       return (await this.getReadings()).tankTemperatureSet;
@@ -356,14 +422,26 @@ export class PanasonicHeatPumpPlatformAccessory {
         // turn off water heating
         this.tankService.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
           .updateValue(this.platform.Characteristic.TargetHeatingCoolingState.OFF);
-        this.panasonicApi.setTankStatus(this.accessory.context.device.uniqueId, false);
+        try {
+          this.panasonicApi.setTankStatus(this.accessory.context.device.uniqueId, false);
+        } catch(e) {
+          this.platform.log.error(
+            `Could not set tank status[${this.accessory.context.device.uniqueId}][${false}]: ${e}`,
+          );
+        }
         await this.getReadings(true, true);
         return;
       }
       // turn on water heating
       this.tankService.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
         .updateValue(this.platform.Characteristic.TargetHeatingCoolingState.HEAT);
-      this.panasonicApi.setTankStatus(this.accessory.context.device.uniqueId, true);
+      try {
+        this.panasonicApi.setTankStatus(this.accessory.context.device.uniqueId, true);
+      } catch(e) {
+        this.platform.log.error(
+          `Could not set tank status[${this.accessory.context.device.uniqueId}][${true}]: ${e}`,
+        );
+      }
       await this.getReadings(true, true);
     }).onGet(async () => {
       return (await this.getReadings()).tankTargetHeatingCoolingState;

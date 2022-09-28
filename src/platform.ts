@@ -55,61 +55,47 @@ export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugi
    * must not be registered again to prevent "duplicate UUID" errors.
    */
   async discoverDevices() {
+    if(!this.email || !this.password) {
+      return;
+    }
     const panasonicApi = new PanasonicApi(this.email, this.password);
-    const {selectedDeviceId, selectedDeviceName, deviceConf} = await panasonicApi.loadDevice();
 
-    const exampleDevices = [
-      {
-        uniqueId: selectedDeviceId,
-        displayName: selectedDeviceName,
-        isCoolModeEnabled: deviceConf.configration[0].zoneInfo[0].coolMode === 'enable',
-        hasWaterTank: deviceConf.configration[0].tankInfo[0].tank === 'Yes',
-      },
-    ];
-    // loop over the discovered devices and register each one if it has not already been registered
-    for (const device of exampleDevices) {
+    let devices: {
+      uniqueId: string;
+      displayName: string;
+      isCoolModeEnabled: boolean;
+      hasWaterTank: boolean;
+    }[] = [];
+    try {
+      const {selectedDeviceId, selectedDeviceName, deviceConf} = await panasonicApi.loadDevice();
+      devices = [
+        {
+          uniqueId: selectedDeviceId,
+          displayName: selectedDeviceName,
+          isCoolModeEnabled: deviceConf.configration[0].zoneInfo[0].coolMode === 'enable',
+          hasWaterTank: deviceConf.configration[0].tankInfo[0].tank === 'Yes',
+        },
+      ];
+    } catch(e) {
+      this.log.error(`Could not load the device: ${e}`);
+    }
+    for (const device of devices) {
 
-      // generate a unique id for the accessory this should be generated from
-      // something globally unique, but constant, for example, the device serial
-      // number or MAC address
       const uuid = this.api.hap.uuid.generate(device.uniqueId);
-
-      // see if an accessory with the same uuid has already been registered and restored from
-      // the cached devices we stored in the `configureAccessory` method above
       const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
 
       if (existingAccessory) {
-        // the accessory already exists
         this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
-
-        // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
-        existingAccessory.context.device = device;
-        this.api.updatePlatformAccessories([existingAccessory]);
-
-        // create the accessory handler for the restored accessory
-        // this is imported from `platformAccessory.ts`
+        if(existingAccessory.context.device.hasWaterTank === undefined) {
+          existingAccessory.context.device = device;
+          this.api.updatePlatformAccessories([existingAccessory]);
+        }
         new PanasonicHeatPumpPlatformAccessory(this, existingAccessory, panasonicApi);
-
-        // it is possible to remove platform accessories at any time using `api.unregisterPlatformAccessories`, eg.:
-        // remove platform accessories when no longer present
-        // this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory]);
-        // this.log.info('Removing existing accessory from cache:', existingAccessory.displayName);
       } else {
-        // the accessory does not yet exist, so we need to create it
         this.log.info('Adding new accessory:', device.displayName);
-
-        // create a new accessory
         const accessory = new this.api.platformAccessory(device.displayName, uuid);
-
-        // store a copy of the device object in the `accessory.context`
-        // the `context` property can be used to store any data about the accessory you may need
         accessory.context.device = device;
-
-        // create the accessory handler for the newly create accessory
-        // this is imported from `platformAccessory.ts`
         new PanasonicHeatPumpPlatformAccessory(this, accessory, panasonicApi);
-
-        // link the accessory to your platform
         this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
       }
     }
