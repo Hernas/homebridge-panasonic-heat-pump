@@ -1,7 +1,7 @@
 {
   "displayName": "Homebridge Panasonic Heat Pump",
-  "name": "homebridge-panasonic-heat-pump",
-  "version": "1.2.1",
+  "name": "@hernas/homebridge-panasonic-heat-pump",
+  "version": "1.2.2",
   "description": "Allows basic control of Panasonic Heat Pump (AQUAREA)",
   "license": "MIT",
   "repository": {

@@ -10,13 +10,41 @@ describe('PanasonicApi', () => {
     expect(device).toEqual( {
       'selectedDeviceId': expect.anything(),
       'selectedDeviceName': 'HeatPump',
+      'deviceConf': {
+        'deviceGuid': expect.anything(),
+        'configration': [
+          {
+            'zoneInfo': [
+              {
+                'zoneSensor': 'Water temperature',
+                'coolMode': 'enable',
+                'heatSensor': 'Compensation curve',
+                'coolSensor': 'Compensation curve',
+                'outdoorType': 'STD',
+                'zoneId': 1,
+                'zoneType': 'Room',
+                'zoneName': 'Home',
+              },
+            ],
+            'a2wName': 'HeatPump',
+            'operationMode': 'Heat',
+            'deviceGuid': expect.anything(),
+            'lastErrorNumber': '',
+            'bivalent': 'No',
+            'specialStatus': 0,
+            'tankInfo': [
+              {
+                'tankType': 'Internal',
+                'tank': 'Yes',
+              },
+            ],
+            'firmVersion': '040102',
+          },
+        ],
+      },
     });
 
     const deviceDetails = await panasonicApi.loadDeviceDetails(device.selectedDeviceId);
-    // eslint-disable-next-line no-console
-    console.log(JSON.stringify(deviceDetails, undefined, 4));
     expect(deviceDetails.deviceGuid).toEqual(device.selectedDeviceId);
-
-    // await panasonicApi.setZoneTemp(device.selectedDeviceId, 5, 'heat');
-  });
+  }, 30000);
 });

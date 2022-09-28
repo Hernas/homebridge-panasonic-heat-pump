@@ -74,7 +74,8 @@ export class PanasonicApi {
     }
     const selectedDeviceId = response.data.match(/var selectedDeviceId = '(.+?)';/i)[1];
     const selectedDeviceName = response.data.match(/var selectedDeviceName = '(.+?)';/i)[1];
-    return { selectedDeviceId, selectedDeviceName };
+    const deviceConf = response.data.match(/var deviceConf = eval\('\((.+?)\)'\);/i)[1].replaceAll('\\"', '"');
+    return { selectedDeviceId, selectedDeviceName, deviceConf: JSON.parse(deviceConf) };
   }
 
   async loadDeviceDetails(deviceId: string, retried = false) {

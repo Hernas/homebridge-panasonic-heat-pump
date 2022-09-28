@@ -14,6 +14,8 @@ export class PanasonicHeatPumpPlatformAccessory {
   private tankService: Service | undefined;
   private ecoModeService: Service;
   private comfortModeService: Service;
+  private readonly isCoolModeEnabled: boolean;
+  private readonly hasWaterTank: boolean;
 
   private lastDetails: Promise<{
     temperatureNow: number;
@@ -42,7 +44,8 @@ export class PanasonicHeatPumpPlatformAccessory {
     private readonly accessory: PlatformAccessory,
     private readonly panasonicApi: PanasonicApi,
   ) {
-
+    this.isCoolModeEnabled = this.accessory.context.device.isCoolModeEnabled;
+    this.hasWaterTank = this.accessory.context.device.hasWaterTank;
     // set accessory information
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Panasonic')
@@ -61,7 +64,7 @@ export class PanasonicHeatPumpPlatformAccessory {
     }).onGet(async () => (await this.getReadings()).temperatureNow);
     this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
       .onSet(async (state: unknown) => {
-        const operationMode = (() => {
+        let operationMode = (() => {
           switch(state) {
             case this.platform.Characteristic.TargetHeatingCoolingState.COOL:
               return PanasonicTargetOperationMode.Cooling;
@@ -74,6 +77,16 @@ export class PanasonicHeatPumpPlatformAccessory {
               return PanasonicTargetOperationMode.Off;
           }
         })();
+        if(!this.isCoolModeEnabled && (operationMode === PanasonicTargetOperationMode.Cooling)) {
+          operationMode = PanasonicTargetOperationMode.Off;
+          this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
+            .updateValue(this.platform.Characteristic.TargetHeatingCoolingState.OFF);
+        }
+        if(!this.isCoolModeEnabled && (operationMode === PanasonicTargetOperationMode.Auto)) {
+          operationMode = PanasonicTargetOperationMode.Heating;
+          this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
+            .updateValue(this.platform.Characteristic.TargetHeatingCoolingState.HEAT);
+        }
         this.panasonicApi.setOperationMode(this.accessory.context.device.uniqueId, operationMode);
         await this.getReadings(true);
       }).onGet(async () => (await this.getReadings()).targetHeatingCoolingState);
@@ -90,7 +103,7 @@ export class PanasonicHeatPumpPlatformAccessory {
       });
 
 
-
+    this.setupTankService();
 
     // Outdoor temperature
     this.outdoorTemperatureService = this.accessory.getService('Outdoor') ||
@@ -286,26 +299,18 @@ export class PanasonicHeatPumpPlatformAccessory {
     this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(outdoorTemperatureNow);
     this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.StatusActive).updateValue(true);
 
-    if(tankTemperatureNow !== null) {
-      this.setupTankService();
-      if(this.tankService) {
-        this.tankService.getCharacteristic(this.platform.Characteristic.TargetTemperature).setProps({
-          minValue: tankTemperatureMin,
-          maxValue: tankTemperatureMax,
-          minStep: 1,
-        }).updateValue(tankTemperatureSet);
-        this.tankService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(tankTemperatureNow);
-        this.tankService.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).updateValue(tankHeatingCoolingState);
-        this.tankService.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
-          .updateValue(tankTargetHeatingCoolingState);
-      }
-    } else {
-      const existingTankService = this.accessory.getService('Water');
-      if(existingTankService) {
-        this.accessory.removeService(existingTankService);
-        this.tankService = undefined;
-      }
+    if(this.tankService) {
+      this.tankService.getCharacteristic(this.platform.Characteristic.TargetTemperature).setProps({
+        minValue: tankTemperatureMin,
+        maxValue: tankTemperatureMax,
+        minStep: 1,
+      }).updateValue(tankTemperatureSet);
+      this.tankService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(tankTemperatureNow);
+      this.tankService.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).updateValue(tankHeatingCoolingState);
+      this.tankService.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
+        .updateValue(tankTargetHeatingCoolingState);
     }
+
     this.ecoModeService.getCharacteristic(this.platform.Characteristic.On).updateValue(ecoModeIsActive);
     this.comfortModeService.getCharacteristic(this.platform.Characteristic.On).updateValue(comfortModeIsActive);
   }
@@ -322,6 +327,14 @@ export class PanasonicHeatPumpPlatformAccessory {
 
   private setupTankService() {
     if(this.tankService !== undefined) {
+      return;
+    }
+    if(!this.hasWaterTank) {
+      const existingTankService = this.accessory.getService('Water');
+      if(existingTankService) {
+        this.accessory.removeService(existingTankService);
+        this.tankService = undefined;
+      }
       return;
     }
     // Water

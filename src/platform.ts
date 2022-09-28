@@ -56,15 +56,16 @@ export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugi
    */
   async discoverDevices() {
     const panasonicApi = new PanasonicApi(this.email, this.password);
-    const {selectedDeviceId, selectedDeviceName} = await panasonicApi.loadDevice();
+    const {selectedDeviceId, selectedDeviceName, deviceConf} = await panasonicApi.loadDevice();
 
     const exampleDevices = [
       {
         uniqueId: selectedDeviceId,
         displayName: selectedDeviceName,
+        isCoolModeEnabled: deviceConf.configration[0].zoneInfo[0].coolMode === 'enable',
+        hasWaterTank: deviceConf.configration[0].tankInfo[0].tank === 'Yes',
       },
     ];
-
     // loop over the discovered devices and register each one if it has not already been registered
     for (const device of exampleDevices) {
 
@@ -82,8 +83,8 @@ export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugi
         this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
 
         // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
-        // existingAccessory.context.device = device;
-        // this.api.updatePlatformAccessories([existingAccessory]);
+        existingAccessory.context.device = device;
+        this.api.updatePlatformAccessories([existingAccessory]);
 
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`

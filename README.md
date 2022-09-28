@@ -1,4 +1,4 @@
-[![NPM](https://img.shields.io/npm/v/homebridge-panasonic-heat-pump)](https://npmjs.org/package/homebridge-panasonic-heat-pump)
+[![NPM](https://img.shields.io/npm/v/@hernas/homebridge-panasonic-heat-pump)](https://npmjs.org/package/@hernas/homebridge-panasonic-heat-pump)
 
 
 # homebridge-panasonic-heat-pump
