@@ -4,9 +4,14 @@
 # homebridge-panasonic-heat-pump
 Panasonic Heat Pump plugin for [HomeBridge](https://github.com/nfarina/homebridge) using the Panasonic *Comfort Cloud* API to expose Panasonic Heat Pumps to Apples HomeKit.
 
+![HomeKit Screenshot](.github/statics/homekit-1.png)
+
 ## Things to know
 * Supports only a single Heat Pump per Comfort Cloud account
-* Supports *AQUAREA* Heat Pumps only.
+* Supports **AQUAREA** Heat Pumps only.
+* Plugin implements all modes of floor heating: cooling, heating, auto (If you don't have cooling enabled in service menu, not sure if this will work)
+* In case of water heating, Apple does not allow to hide *cooling* & *auto* mode. When selecting cooling, the plugin sets it to *off* and when selecting *auto*, it switches to *heating*.
+* In case your water heater does not report current tank temperature, the plugin will show target temperature.
 
 ## Getting started
 
@@ -23,18 +28,19 @@ Panasonic AQUAREA that has a cloud adapter installed
    For instructions on how to do this, see [Sharing Panasonic heatpump with another account](README.md#Sharing-Panasonic-heatpump-with-another-account) section below.
 
 ### Sample configuration
-```{
-        "platform": "PanasonicHeatPumpHomebridgePlugin",
-		"email": "<YOUR_EMAIL_HERE>",
-		"password": "<YOUR_PASSWORD_HERE>"
-    }
+```
+{
+  "platform": "PanasonicHeatPumpHomebridgePlugin",
+  "email": "<YOUR_EMAIL_HERE>",
+  "password": "<YOUR_PASSWORD_HERE>"
+}
 ```
 
 ### Sharing Panasonic heatpump with another account
 Panasonic really needs to improve this experience, nonetheless, here it is:
 1. Create a new panasonic account here: [Panasonic ID Registration](https://csapl.pcpf.panasonic.com/Account/Register001?lang=en)
 2. Verify email using the link sent to the email id specified
-3. Sign into the Panasonic Comfort Cloud app on your smart device using the newly created Panasonic ID
+3. Sign into the *Panasonic Comfort Cloud* app on your smart device using the newly created *Panasonic ID*
 4. Agree to the terms and conditions displayed in app
 5. Agree to the privacy notice displayed in app
 6. You should now be on the home screen of the App
@@ -42,7 +48,7 @@ Panasonic really needs to improve this experience, nonetheless, here it is:
 8. Choose "Heat Pump"
 9. Use the device ID from the original device package
 10. Enter the device password you used when originally setting up the device
-11. In step 3: Enter a name for the heatpump, a message="HomeBridge account" and note="HomeBridge account")
+11. In step 3: Enter a name for the heatpump, a message="HomeBridge account" and note="HomeBridge account"
 12. Click Send Request
 13. Log out of the app
 14. Sign in with the original email account in the Panasonic Comfort Cloud App

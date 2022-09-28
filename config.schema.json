@@ -1,6 +1,8 @@
 {
   "pluginAlias": "PanasonicHeatPumpHomebridgePlugin",
   "pluginType": "platform",
+  "headerDisplay": "Supports only Panasonic AQUAREA Heat Pump, that has a cloud adapter installed .\n\nCheck out the [Setup Guide](https://github.com/bimusiek/homebridge-panasonic-heat-pump#setup-the-app)",
+  "footerDisplay": "**Caution!** It is recommended to setup another login for the *Comfort Cloud* and share your home to that login. [Read how](https://github.com/bimusiek/homebridge-panasonic-heat-pump#sharing-panasonic-heatpump-with-another-account)",
   "singular": true,
   "schema": {
     "type": "object",
