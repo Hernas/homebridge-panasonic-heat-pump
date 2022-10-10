@@ -26,8 +26,8 @@ export class PanasonicHeatPumpPlatformAccessory {
   private service: Service;
   private outdoorTemperatureService: Service;
   private tankService: Service | undefined;
-  private ecoModeService: Service;
-  private comfortModeService: Service;
+  private ecoModeService: Service | undefined;
+  private comfortModeService: Service | undefined;
   private readonly isCoolModeEnabled: boolean;
   private readonly hasWaterTank: boolean;
 
@@ -124,59 +124,73 @@ export class PanasonicHeatPumpPlatformAccessory {
 
 
     // Eco Mode
-    this.ecoModeService = this.accessory.getService('Eco Mode') ||
-      this.accessory.addService(this.platform.Service.Switch, 'Eco Mode', 'eco-mode');
-    this.ecoModeService.getCharacteristic(this.platform.Characteristic.On).onSet(async (value) => {
-      if(value) {
-        try {
-          panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.Eco);
-        } catch(e) {
-          this.platform.log.error(
-            `Could not set special status[${this.accessory.context.device.uniqueId}][${PanasonicSpecialStatus.Eco}]: ${e}`,
-          );
+    if(this.platform.config.enableEcoModeSwitch) {
+      this.ecoModeService = this.accessory.getService('Eco Mode') ||
+        this.accessory.addService(this.platform.Service.Switch, 'Eco Mode', 'eco-mode');
+      this.ecoModeService.getCharacteristic(this.platform.Characteristic.On).onSet(async (value) => {
+        if(value) {
+          try {
+            panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.Eco);
+          } catch(e) {
+            this.platform.log.error(
+              `Could not set special status[${this.accessory.context.device.uniqueId}][${PanasonicSpecialStatus.Eco}]: ${e}`,
+            );
+          }
+          this.comfortModeService?.getCharacteristic(this.platform.Characteristic.On).updateValue(false);
+        } else {
+          try {
+            panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.None);
+          } catch(e) {
+            this.platform.log.error(
+              `Could not set special status[${this.accessory.context.device.uniqueId}][${PanasonicSpecialStatus.None}]: ${e}`,
+            );
+          }
         }
-        this.comfortModeService.getCharacteristic(this.platform.Characteristic.On).updateValue(false);
-      } else {
-        try {
-          panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.None);
-        } catch(e) {
-          this.platform.log.error(
-            `Could not set special status[${this.accessory.context.device.uniqueId}][${PanasonicSpecialStatus.None}]: ${e}`,
-          );
-        }
+        await this.getReadings(true, true);
+      }).onGet(async () => {
+        return (await this.getReadings()).ecoModeIsActive;
+      });
+    } else {
+      const existingEcoMode = this.accessory.getService('Eco Mode');
+      if(existingEcoMode) {
+        this.accessory.removeService(existingEcoMode);
       }
-      await this.getReadings(true, true);
-    }).onGet(async () => {
-      return (await this.getReadings()).ecoModeIsActive;
-    });
+    }
 
 
     // Comfort Mode
-    this.comfortModeService = this.accessory.getService('Comfort Mode') ||
+    if(this.platform.config.enableComfortModeSwitch) {
+      this.comfortModeService = this.accessory.getService('Comfort Mode') ||
       this.accessory.addService(this.platform.Service.Switch, 'Comfort Mode', 'comfort-mode');
-    this.comfortModeService.getCharacteristic(this.platform.Characteristic.On).onSet(async (value) => {
-      if(value) {
-        try {
-          panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.Comfort);
-        } catch(e) {
-          this.platform.log.error(
-            `Could not set special status[${this.accessory.context.device.uniqueId}][${PanasonicSpecialStatus.Comfort}]: ${e}`,
-          );
+      this.comfortModeService.getCharacteristic(this.platform.Characteristic.On).onSet(async (value) => {
+        if(value) {
+          try {
+            panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.Comfort);
+          } catch(e) {
+            this.platform.log.error(
+              `Could not set special status[${this.accessory.context.device.uniqueId}][${PanasonicSpecialStatus.Comfort}]: ${e}`,
+            );
+          }
+          this.ecoModeService?.getCharacteristic(this.platform.Characteristic.On).updateValue(false);
+        } else {
+          try {
+            panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.None);
+          } catch(e) {
+            this.platform.log.error(
+              `Could not set special status[${this.accessory.context.device.uniqueId}][${PanasonicSpecialStatus.None}]: ${e}`,
+            );
+          }
         }
-        this.ecoModeService.getCharacteristic(this.platform.Characteristic.On).updateValue(false);
-      } else {
-        try {
-          panasonicApi.setSpecialStatus(this.accessory.context.device.uniqueId, PanasonicSpecialStatus.None);
-        } catch(e) {
-          this.platform.log.error(
-            `Could not set special status[${this.accessory.context.device.uniqueId}][${PanasonicSpecialStatus.None}]: ${e}`,
-          );
-        }
+        await this.getReadings(true, true);
+      }).onGet(async () => {
+        return (await this.getReadings()).comfortModeIsActive;
+      });
+    } else {
+      const existingComfortMode = this.accessory.getService('Comfort Mode');
+      if(existingComfortMode) {
+        this.accessory.removeService(existingComfortMode);
       }
-      await this.getReadings(true, true);
-    }).onGet(async () => {
-      return (await this.getReadings()).comfortModeIsActive;
-    });
+    }
   }
 
   async getReadings(force = false, afterSet = false): Promise<Details> {
@@ -371,17 +385,18 @@ export class PanasonicHeatPumpPlatformAccessory {
         .updateValue(tankTargetHeatingCoolingState);
     }
 
-    this.ecoModeService.getCharacteristic(this.platform.Characteristic.On).updateValue(ecoModeIsActive);
-    this.comfortModeService.getCharacteristic(this.platform.Characteristic.On).updateValue(comfortModeIsActive);
+    this.ecoModeService?.getCharacteristic(this.platform.Characteristic.On).updateValue(ecoModeIsActive);
+    this.comfortModeService?.getCharacteristic(this.platform.Characteristic.On).updateValue(comfortModeIsActive);
   }
 
   private refreshTimeout() {
     if(this.timeoutId) {
       clearTimeout(this.timeoutId);
     }
+    const timeout = (this.platform.config.refreshTime ?? 60) * 1000;
     this.timeoutId = setTimeout(() => {
       this.updateReadings();
-    }, 5000);
+    }, timeout);
   }
 
 

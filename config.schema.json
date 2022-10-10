@@ -18,6 +18,24 @@
         "type": "string",
         "required": true,
         "default": ""
+      },
+      "enableEcoModeSwitch": {
+        "title": "Show ECO MODE switch",
+        "type": "boolean",
+        "required": false,
+        "default": false
+      },
+      "enableComfortModeSwitch": {
+        "title": "Show COMFORT MODE switch",
+        "type": "boolean",
+        "required": false,
+        "default": false
+      },
+      "refreshTime": {
+        "title": "Refresh time",
+        "type": "integer",
+        "minimum": 15,
+        "default": 60
       }
     }
   }
