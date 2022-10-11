@@ -22,6 +22,25 @@ type Details = {
     targetTempMax: number;
     tempType: 'heat' | 'cool' | 'eco' | 'comfort';
 };
+const noDetails: Details = {
+  temperatureNow: 0,
+  heatingCoolingState: 0,
+  targetHeatingCoolingState: 0,
+  outdoorTemperatureNow: 0,
+  tankTemperatureNow: 0,
+  tankTemperatureSet: 0,
+  tankHeatingCoolingState: 0,
+  tankTargetHeatingCoolingState: 0,
+  isActive: false,
+  ecoModeIsActive: false,
+  comfortModeIsActive: false,
+  tankTemperatureMax: 0,
+  tankTemperatureMin: 0,
+  targetTempSet: 0,
+  targetTempMin: 0,
+  targetTempMax: 0,
+  tempType: 'heat',
+};
 export class PanasonicHeatPumpPlatformAccessory {
   private service: Service;
   private outdoorTemperatureService?: Service;
@@ -332,28 +351,7 @@ export class PanasonicHeatPumpPlatformAccessory {
       this.platform.log.error(
         `Could not fetch details of device[${this.accessory.context.device.uniqueId}] ${e}`,
       );
-      if(this.lastDetails) {
-        return this.lastDetails;
-      }
-      return {
-        temperatureNow: 0,
-        heatingCoolingState: 0,
-        targetHeatingCoolingState: 0,
-        outdoorTemperatureNow: 0,
-        tankTemperatureNow: 0,
-        tankTemperatureSet: 0,
-        tankHeatingCoolingState: 0,
-        tankTargetHeatingCoolingState: 0,
-        isActive: false,
-        ecoModeIsActive: false,
-        comfortModeIsActive: false,
-        tankTemperatureMax: 0,
-        tankTemperatureMin: 0,
-        targetTempSet: 0,
-        targetTempMin: 0,
-        targetTempMax: 0,
-        tempType: 'heat',
-      };
+      return this.lastDetails ?? noDetails;
     } finally {
       this.refreshTimeout();
     }

@@ -53,7 +53,7 @@ export class PanasonicApi {
       await wait(1000);
       this.ensureAuthenticated(force, retries + 1);
     }
-    this.log?.debug('Authenticated to Aquarea Smart Panasonic');
+    this.log?.info('Authenticated to Aquarea Smart Panasonic');
   }
 
   async loadDevice(retried = false) {
