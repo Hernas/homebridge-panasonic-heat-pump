@@ -19,6 +19,12 @@
         "required": true,
         "default": ""
       },
+      "enableOutdoorTempSensor": {
+        "title": "Show Outdoor Temp sensor",
+        "type": "boolean",
+        "required": false,
+        "default": true
+      },
       "enableEcoModeSwitch": {
         "title": "Show ECO MODE switch",
         "type": "boolean",

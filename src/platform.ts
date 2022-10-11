@@ -58,7 +58,7 @@ export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugi
     if(!this.email || !this.password) {
       return;
     }
-    const panasonicApi = new PanasonicApi(this.email, this.password);
+    const panasonicApi = new PanasonicApi(this.email, this.password, this.log);
 
     let devices: {
       uniqueId: string;

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Logger } from 'homebridge';
 
 export enum PanasonicSpecialStatus {
     None = 0,
@@ -20,10 +21,12 @@ export class PanasonicApi {
   private username;
   private password;
   private accessToken?: string;
+  private log?: Logger;
 
-  constructor(username: string, password: string) {
+  constructor(username: string, password: string, log?: Logger) {
     this.username = username;
     this.password = password;
+    this.log = log;
   }
 
   private async ensureAuthenticated(force = false, retries = 0) {
@@ -43,12 +46,14 @@ export class PanasonicApi {
     this.accessToken = response.headers['set-cookie']?.
       map(cookie => cookie?.match(/accessToken=(.+?);/i)?.[1]).filter(c => !!c)[0] ?? undefined;
     if(!this.accessToken) {
+      this.log?.error(`Could not authenticate to Aquarea Smart Panasonic. Headers: ${JSON.stringify(response.headers)}`);
       if(retries > 5) {
         throw new Error('Could not authenticate');
       }
       await wait(1000);
       this.ensureAuthenticated(force, retries + 1);
     }
+    this.log?.debug('Authenticated to Aquarea Smart Panasonic');
   }
 
   async loadDevice(retried = false) {

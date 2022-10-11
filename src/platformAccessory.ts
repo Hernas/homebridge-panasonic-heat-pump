@@ -24,7 +24,7 @@ type Details = {
 };
 export class PanasonicHeatPumpPlatformAccessory {
   private service: Service;
-  private outdoorTemperatureService: Service;
+  private outdoorTemperatureService?: Service;
   private tankService: Service | undefined;
   private ecoModeService: Service | undefined;
   private comfortModeService: Service | undefined;
@@ -113,14 +113,21 @@ export class PanasonicHeatPumpPlatformAccessory {
     this.setupTankService();
 
     // Outdoor temperature
-    this.outdoorTemperatureService = this.accessory.getService('Outdoor') ||
+    if(this.platform.config.enableOutdoorTempSensor) {
+      this.outdoorTemperatureService = this.accessory.getService('Outdoor') ||
       this.accessory.addService(this.platform.Service.TemperatureSensor, 'Outdoor', 'outdoor');
-    this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).onGet(async () => {
-      return (await this.getReadings()).outdoorTemperatureNow;
-    });
-    this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.StatusActive).onGet(async () => {
-      return true;
-    });
+      this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).onGet(async () => {
+        return (await this.getReadings()).outdoorTemperatureNow;
+      });
+      this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.StatusActive).onGet(async () => {
+        return true;
+      });
+    } else {
+      const existingTempSensor = this.accessory.getService('Outdoor');
+      if(existingTempSensor) {
+        this.accessory.removeService(existingTempSensor);
+      }
+    }
 
 
     // Eco Mode
@@ -313,7 +320,7 @@ export class PanasonicHeatPumpPlatformAccessory {
         clearTimeout(this.timeoutId);
       }
       if(this.lastDetailsPromise) {
-        return this.lastDetailsPromise;
+        return await this.lastDetailsPromise;
       }
       const readingsPromise = loadReadings().then(details => {
         this.lastDetails = details;
@@ -370,8 +377,8 @@ export class PanasonicHeatPumpPlatformAccessory {
     }).updateValue(targetTempSet + temperatureNow);
     // As heat pumps take -5 up to +5 target temp and HomeKit does not support it, we have to adjust by tempNow
 
-    this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(outdoorTemperatureNow);
-    this.outdoorTemperatureService.getCharacteristic(this.platform.Characteristic.StatusActive).updateValue(true);
+    this.outdoorTemperatureService?.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(outdoorTemperatureNow);
+    this.outdoorTemperatureService?.getCharacteristic(this.platform.Characteristic.StatusActive).updateValue(true);
 
     if(this.tankService) {
       this.tankService.getCharacteristic(this.platform.Characteristic.TargetTemperature).setProps({
