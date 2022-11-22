@@ -51,7 +51,7 @@ export class PanasonicApi {
         throw new Error('Could not authenticate');
       }
       await wait(1000);
-      this.ensureAuthenticated(force, retries + 1);
+      return this.ensureAuthenticated(force, retries + 1);
     }
     this.log?.info('Authenticated to Aquarea Smart Panasonic');
   }
