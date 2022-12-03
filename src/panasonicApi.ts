@@ -99,6 +99,7 @@ export class PanasonicApi {
       if (retried) {
         if(response.data.message && response.data.message.length > 0) {
           const joinedMessages = response.data.message.map().join('\n');
+          throw new Error(joinedMessages);
         }
         throw new Error(`Cannot load device details: ${JSON.stringify(response.data)}`);
       }
