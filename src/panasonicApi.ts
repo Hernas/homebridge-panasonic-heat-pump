@@ -97,7 +97,10 @@ export class PanasonicApi {
     });
     if (response.data.errorCode > 0 || !response.data.status || !response.data.status[0]) {
       if (retried) {
-        throw new Error('Cannot authenticate');
+        if(response.data.message && response.data.message.length > 0) {
+          const joinedMessages = response.data.message.map().join('\n');
+        }
+        throw new Error(`Cannot load device details: ${JSON.stringify(response.data)}`);
       }
       await wait(1000);
       await this.ensureAuthenticated(true);
