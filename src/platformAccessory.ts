@@ -369,13 +369,19 @@ export class PanasonicHeatPumpPlatformAccessory {
     this.service.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).updateValue(heatingCoolingState);
     this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState).updateValue(targetHeatingCoolingState);
 
-    const tempMin = targetTempMin + temperatureNow;
-    const tempMax = targetTempMax + temperatureNow;
+    const tempMin = Math.floor(targetTempMin + temperatureNow);
+    const tempMax = Math.ceil(targetTempMax + temperatureNow);
+    const tempCurrent = targetTempSet + temperatureNow;
+    this.platform.log.debug(`Updating TargetTemperature of Floor Heater: ${{
+      minValue: tempMin,
+      maxValue: tempMax,
+      minStep: 1,
+    }}`);
     this.service.getCharacteristic(this.platform.Characteristic.TargetTemperature).setProps({
       minValue: tempMin,
       maxValue: tempMax,
       minStep: 1,
-    }).updateValue(Math.max(tempMin, Math.min(tempMax, targetTempSet + temperatureNow)));
+    }).updateValue(Math.max(tempMin, Math.min(tempMax, tempCurrent)));
     // As heat pumps take -5 up to +5 target temp and HomeKit does not support it, we have to adjust by tempNow
 
     this.outdoorTemperatureService?.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(outdoorTemperatureNow);
