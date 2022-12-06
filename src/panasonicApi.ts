@@ -11,8 +11,7 @@ export enum PanasonicTargetOperationMode {
   Off = 0,
   Heating = 2,
   Cooling = 3,
-  Auto = 8,
-  Ignore = -1
+  Auto = 8
 }
 export async function wait(time: number) {
   return new Promise(resolve => setTimeout(resolve, time));
@@ -171,7 +170,7 @@ export class PanasonicApi {
     }
   }
 
-  async setOperationMode(deviceId: string, operationMode: PanasonicTargetOperationMode, operationStatus: boolean, retried = false) {
+  async setOperationMode(deviceId: string, operationMode: PanasonicTargetOperationMode, retried = false) {
     await this.ensureAuthenticated();
     const response = await axios({
       'method': 'POST',
@@ -188,7 +187,7 @@ export class PanasonicApi {
             {
               'deviceGuid':deviceId,
               'operationMode':operationMode,
-              'zoneStatus': [{zoneId: 1, 'operationStatus': operationStatus ? 1 : 0}],
+              'zoneStatus': [{zoneId: 1, 'operationStatus':operationMode === PanasonicTargetOperationMode.Off ? 0 : 1}],
             },
           ],
         }),
@@ -198,7 +197,7 @@ export class PanasonicApi {
         throw new Error('Cannot authenticate');
       }
       await this.ensureAuthenticated(true);
-      return this.setOperationMode(deviceId, operationMode, operationStatus, true);
+      return this.setOperationMode(deviceId, operationMode, true);
     }
   }
 
