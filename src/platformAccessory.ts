@@ -92,18 +92,22 @@ export class PanasonicHeatPumpPlatformAccessory {
               return PanasonicTargetOperationMode.Off;
           }
         })();
-        if(!this.isCoolModeEnabled && (operationMode === PanasonicTargetOperationMode.Cooling)) {
-          operationMode = PanasonicTargetOperationMode.Off;
+        let operationStatus = operationMode !== PanasonicTargetOperationMode.Off;
+        if(!this.isCoolModeEnabled) {
+          // Special case for Heat Pumps with cooling disabled where we need to send operationMode as -1
+          const isOn = operationMode === PanasonicTargetOperationMode.Heating || operationMode === PanasonicTargetOperationMode.Auto;
+          operationMode = PanasonicTargetOperationMode.Ignore;
+          operationStatus = isOn;
           this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
-            .updateValue(this.platform.Characteristic.TargetHeatingCoolingState.OFF);
+            .updateValue(
+              isOn ?
+                this.platform.Characteristic.TargetHeatingCoolingState.HEAT :
+                this.platform.Characteristic.TargetHeatingCoolingState.OFF,
+            );
         }
-        if(!this.isCoolModeEnabled && (operationMode === PanasonicTargetOperationMode.Auto)) {
-          operationMode = PanasonicTargetOperationMode.Heating;
-          this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
-            .updateValue(this.platform.Characteristic.TargetHeatingCoolingState.HEAT);
-        }
+        this.platform.log.debug(`SetOperationMode(${this.accessory.context.device.uniqueId}, ${operationMode}, ${operationStatus}}`);
         try {
-          this.panasonicApi.setOperationMode(this.accessory.context.device.uniqueId, operationMode);
+          this.panasonicApi.setOperationMode(this.accessory.context.device.uniqueId, operationMode, operationStatus);
         } catch(e) {
           this.platform.log.error(`Could not set operation mode[${this.accessory.context.device.uniqueId}][${operationMode}]: ${e}`);
         }
