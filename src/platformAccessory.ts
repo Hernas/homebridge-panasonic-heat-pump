@@ -92,6 +92,8 @@ export class PanasonicHeatPumpPlatformAccessory {
               return PanasonicTargetOperationMode.Off;
           }
         })();
+
+        // In case of having water tank, we have to control only specific ZONE and operationMode
         if(!this.isCoolModeEnabled && (operationMode === PanasonicTargetOperationMode.Cooling)) {
           operationMode = PanasonicTargetOperationMode.Off;
           this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
@@ -102,11 +104,7 @@ export class PanasonicHeatPumpPlatformAccessory {
           this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
             .updateValue(this.platform.Characteristic.TargetHeatingCoolingState.HEAT);
         }
-        try {
-          this.panasonicApi.setOperationMode(this.accessory.context.device.uniqueId, operationMode);
-        } catch(e) {
-          this.platform.log.error(`Could not set operation mode[${this.accessory.context.device.uniqueId}][${operationMode}]: ${e}`);
-        }
+        await this.updateHeatPump({heaterMode: operationMode});
         await this.getReadings(true);
       }).onGet(async () => (await this.getReadings()).targetHeatingCoolingState);
     this.service.getCharacteristic(this.platform.Characteristic.TargetTemperature)
@@ -125,7 +123,7 @@ export class PanasonicHeatPumpPlatformAccessory {
         await this.getReadings(true);
       }).onGet(async () => {
         const readings = await this.getReadings();
-        return readings.targetTempSet + readings.temperatureNow;
+        return this.updateTargetTemperaturePropsAndReturnCurrentTemp(readings);
       });
 
 
@@ -217,6 +215,54 @@ export class PanasonicHeatPumpPlatformAccessory {
         this.accessory.removeService(existingComfortMode);
       }
     }
+
+    this.getReadings();
+  }
+
+  async updateHeatPump({heaterMode, isWaterTankOn}: {heaterMode?: PanasonicTargetOperationMode; isWaterTankOn?: boolean}) {
+    const {tankTargetHeatingCoolingState, isActive, targetHeatingCoolingState} = await this.getReadings();
+    const isWaterTankOnCurrently = tankTargetHeatingCoolingState !== this.platform.Characteristic.TargetHeatingCoolingState.OFF;
+    const isFloorHeatingOnCurrently = targetHeatingCoolingState !== this.platform.Characteristic.TargetHeatingCoolingState.OFF;
+
+    this.platform.log.debug(`updateHeatPump(${JSON.stringify({heaterMode, isWaterTankOn})}) 
+    [${JSON.stringify({isActive, isFloorHeatingOnCurrently, isWaterTankOnCurrently})}]`);
+
+    let heatPumpShouldBeActive = true;
+    if(!this.hasWaterTank) {
+      if(heaterMode === undefined) {
+        this.platform.log.error(`Something unexpected happened for updateHeatPump without waterTank: 
+        ${JSON.stringify({heaterMode, isWaterTankOn})}`);
+        return;
+      }
+      heatPumpShouldBeActive = heaterMode !== PanasonicTargetOperationMode.Off;
+    } else {
+      if(heaterMode === undefined && isWaterTankOn === undefined) {
+        this.platform.log.error(`Something unexpected happened for updateHeatPump with waterTank: 
+        ${JSON.stringify({heaterMode, isWaterTankOn})}`);
+        return;
+      }
+      if(heaterMode !== undefined) {
+        heatPumpShouldBeActive = isWaterTankOnCurrently || heaterMode !== PanasonicTargetOperationMode.Off;
+      }
+      if(isWaterTankOn !== undefined) {
+        heatPumpShouldBeActive = isFloorHeatingOnCurrently || isWaterTankOn;
+      }
+    }
+
+    this.platform.log.debug(`heatPumpShouldBeActive: ${heatPumpShouldBeActive}`);
+    this.platform.log.debug(`isActive: ${isActive}`);
+    try {
+      if(heaterMode !== undefined) {
+        this.platform.log.debug(`setOperationMode(${heatPumpShouldBeActive}, ${heaterMode})`);
+        this.panasonicApi.setOperationMode(this.accessory.context.device.uniqueId, heatPumpShouldBeActive, heaterMode);
+      }
+      if(isWaterTankOn !== undefined) {
+        this.platform.log.debug(`setTankStatus(${heatPumpShouldBeActive}, ${isWaterTankOn})`);
+        this.panasonicApi.setTankStatus(this.accessory.context.device.uniqueId, heatPumpShouldBeActive, isWaterTankOn);
+      }
+    } catch(e) {
+      this.platform.log.error(`Could not set operation mode[${this.accessory.context.device.uniqueId}][${heaterMode}]: ${e}`);
+    }
   }
 
   async getReadings(force = false, afterSet = false): Promise<Details> {
@@ -225,7 +271,7 @@ export class PanasonicHeatPumpPlatformAccessory {
     }
     const loadReadings = async () => {
       if(afterSet) {
-        await wait(5000);
+        await wait(1000);
       }
       const details = await this.panasonicApi.loadDeviceDetails(this.accessory.context.device.uniqueId);
 
@@ -234,8 +280,9 @@ export class PanasonicHeatPumpPlatformAccessory {
 
       const isActive = details.operationStatus === 1;
       const direction = details.direction;
+      const isWholeHeaterOff = details.operationStatus === 0 || operationalZone.operationStatus === 0;
 
-      // What is currently on
+      // What is currently being heated (so if both water tank and heater are on, what is currently being provided with heat)
       const isHeatingOn = direction === 1;
       const isTankOn = direction === 2;
 
@@ -243,7 +290,7 @@ export class PanasonicHeatPumpPlatformAccessory {
       // throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
       const operationMode = details.operationMode;
       const heatingCoolingState = (() => {
-        if(!isHeatingOn) {
+        if(!isHeatingOn || isWholeHeaterOff) {
           return this.platform.Characteristic.CurrentHeatingCoolingState.OFF;
         }
         if(operationMode === 1) {
@@ -263,7 +310,7 @@ export class PanasonicHeatPumpPlatformAccessory {
         return this.platform.Characteristic.CurrentHeatingCoolingState.OFF;
       })();
       const targetHeatingCoolingState = (() => {
-        if(details.operationStatus === 0) {
+        if(details.operationStatus === 0 || operationalZone.operationStatus === 0) {
           return this.platform.Characteristic.TargetHeatingCoolingState.OFF;
         }
         switch (operationMode) {
@@ -284,13 +331,13 @@ export class PanasonicHeatPumpPlatformAccessory {
       const tankTemperatureSet = details.tankStatus[0].heatSet;
       const tankIsActive = details.tankStatus[0].operationStatus === 1;
       const tankHeatingCoolingState = (() => {
-        if (!isTankOn) {
+        if (!isTankOn || !isActive || !tankIsActive) {
           return this.platform.Characteristic.CurrentHeatingCoolingState.OFF;
         }
         return this.platform.Characteristic.CurrentHeatingCoolingState.HEAT;
       })();
       const tankTargetHeatingCoolingState = (() => {
-        if (!tankIsActive) {
+        if (!tankIsActive || !isActive) {
           return this.platform.Characteristic.TargetHeatingCoolingState.OFF;
         }
         return this.platform.Characteristic.TargetHeatingCoolingState.HEAT;
@@ -342,6 +389,7 @@ export class PanasonicHeatPumpPlatformAccessory {
         return await this.lastDetailsPromise;
       }
       const readingsPromise = loadReadings().then(details => {
+        this.platform.log.debug(`Readings: ${JSON.stringify(details)}`);
         this.lastDetails = details;
         return details;
       });
@@ -357,31 +405,19 @@ export class PanasonicHeatPumpPlatformAccessory {
     }
   }
 
-  async updateReadings() {
+  async updateReadings(readings: Details) {
     const {
       outdoorTemperatureNow, temperatureNow, tankTemperatureNow, tankTemperatureSet, tankHeatingCoolingState, isActive, ecoModeIsActive,
       comfortModeIsActive, tankTemperatureMax, tankTemperatureMin, tankTargetHeatingCoolingState, heatingCoolingState,
-      targetHeatingCoolingState, targetTempSet, targetTempMax, targetTempMin,
-    } = await this.getReadings(true);
-
+      targetHeatingCoolingState,
+    } = readings;
     this.service.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(temperatureNow);
     this.service.getCharacteristic(this.platform.Characteristic.Active).updateValue(isActive);
     this.service.getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState).updateValue(heatingCoolingState);
     this.service.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState).updateValue(targetHeatingCoolingState);
 
-    const tempMin = Math.floor(targetTempMin + temperatureNow);
-    const tempMax = Math.ceil(targetTempMax + temperatureNow);
-    const tempCurrent = targetTempSet + temperatureNow;
-    this.platform.log.debug(`Updating TargetTemperature of Floor Heater: ${{
-      minValue: tempMin,
-      maxValue: tempMax,
-      minStep: 1,
-    }}`);
-    this.service.getCharacteristic(this.platform.Characteristic.TargetTemperature).setProps({
-      minValue: tempMin,
-      maxValue: tempMax,
-      minStep: 1,
-    }).updateValue(Math.max(tempMin, Math.min(tempMax, tempCurrent)));
+    const currentTemp = this.updateTargetTemperaturePropsAndReturnCurrentTemp(readings);
+    this.service.getCharacteristic(this.platform.Characteristic.TargetTemperature).updateValue(currentTemp);
     // As heat pumps take -5 up to +5 target temp and HomeKit does not support it, we have to adjust by tempNow
 
     this.outdoorTemperatureService?.getCharacteristic(this.platform.Characteristic.CurrentTemperature).updateValue(outdoorTemperatureNow);
@@ -403,13 +439,30 @@ export class PanasonicHeatPumpPlatformAccessory {
     this.comfortModeService?.getCharacteristic(this.platform.Characteristic.On).updateValue(comfortModeIsActive);
   }
 
+  private updateTargetTemperaturePropsAndReturnCurrentTemp({targetTempMin, targetTempMax, targetTempSet, temperatureNow}: Details) {
+    const tempMin = Math.floor(targetTempMin) + Math.floor(temperatureNow);
+    const tempMax = Math.ceil(targetTempMax) + Math.ceil(temperatureNow);
+    const tempCurrent = Math.round(targetTempSet + temperatureNow);
+    this.platform.log.debug(`Updating TargetTemperature of Floor Heater: ${JSON.stringify({
+      minValue: tempMin,
+      maxValue: tempMax,
+      minStep: 1,
+    })}`);
+    this.service.getCharacteristic(this.platform.Characteristic.TargetTemperature).setProps({
+      minValue: tempMin,
+      maxValue: tempMax,
+      minStep: 1,
+    });
+    return Math.max(tempMin, Math.min(tempMax, tempCurrent));
+  }
+
   private refreshTimeout() {
     if(this.timeoutId) {
       clearTimeout(this.timeoutId);
     }
-    const timeout = (this.platform.config.refreshTime ?? 60) * 1000;
+    const timeout = (this.platform.config.refreshTime ?? 15) * 1000;
     this.timeoutId = setTimeout(() => {
-      this.updateReadings();
+      this.getReadings(true);
     }, timeout);
   }
 
@@ -451,26 +504,14 @@ export class PanasonicHeatPumpPlatformAccessory {
         // turn off water heating
         this.tankService.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
           .updateValue(this.platform.Characteristic.TargetHeatingCoolingState.OFF);
-        try {
-          this.panasonicApi.setTankStatus(this.accessory.context.device.uniqueId, false);
-        } catch(e) {
-          this.platform.log.error(
-            `Could not set tank status[${this.accessory.context.device.uniqueId}][${false}]: ${e}`,
-          );
-        }
+        await this.updateHeatPump({isWaterTankOn: false});
         await this.getReadings(true, true);
         return;
       }
       // turn on water heating
       this.tankService.getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
         .updateValue(this.platform.Characteristic.TargetHeatingCoolingState.HEAT);
-      try {
-        this.panasonicApi.setTankStatus(this.accessory.context.device.uniqueId, true);
-      } catch(e) {
-        this.platform.log.error(
-          `Could not set tank status[${this.accessory.context.device.uniqueId}][${true}]: ${e}`,
-        );
-      }
+      await this.updateHeatPump({isWaterTankOn: true});
       await this.getReadings(true, true);
     }).onGet(async () => {
       return (await this.getReadings()).tankTargetHeatingCoolingState;

@@ -138,6 +138,9 @@ export class PanasonicApi {
       await this.ensureAuthenticated(true);
       return this.setSpecialStatus(deviceId, status, true);
     }
+    if(response.data.errorCode !== 0) {
+      throw new Error(`Could not update special status: ${JSON.stringify(response.data)}`);
+    }
   }
 
   async setTankTargetHeat(deviceId: string, temperature: number, retried = false) {
@@ -168,9 +171,12 @@ export class PanasonicApi {
       await this.ensureAuthenticated(true);
       return this.setTankTargetHeat(deviceId, temperature, true);
     }
+    if(response.data.errorCode !== 0) {
+      throw new Error(`Could not update tank target heat: ${JSON.stringify(response.data)}`);
+    }
   }
 
-  async setOperationMode(deviceId: string, operationMode: PanasonicTargetOperationMode, retried = false) {
+  async setOperationMode(deviceId: string, operationStatus: boolean, operationMode: PanasonicTargetOperationMode, retried = false) {
     await this.ensureAuthenticated();
     const response = await axios({
       'method': 'POST',
@@ -186,6 +192,7 @@ export class PanasonicApi {
           'status':[
             {
               'deviceGuid':deviceId,
+              'operationStatus':operationStatus ? 1 : 0,
               'operationMode':operationMode,
               'zoneStatus': [{zoneId: 1, 'operationStatus':operationMode === PanasonicTargetOperationMode.Off ? 0 : 1}],
             },
@@ -197,7 +204,10 @@ export class PanasonicApi {
         throw new Error('Cannot authenticate');
       }
       await this.ensureAuthenticated(true);
-      return this.setOperationMode(deviceId, operationMode, true);
+      return this.setOperationMode(deviceId, operationStatus, operationMode, true);
+    }
+    if(response.data.errorCode !== 0) {
+      throw new Error(`Could not update operation mode: ${JSON.stringify(response.data)}`);
     }
   }
 
@@ -229,6 +239,9 @@ export class PanasonicApi {
       await this.ensureAuthenticated(true);
       return this.setZoneTemp(deviceId, temp, type, true);
     }
+    if(response.data.errorCode !== 0) {
+      throw new Error(`Could not update zone temp: ${JSON.stringify(response.data)}`);
+    }
   }
 
   async setOperationStatus(deviceId: string, isOn: boolean, retried = false) {
@@ -259,9 +272,12 @@ export class PanasonicApi {
       await this.ensureAuthenticated(true);
       return this.setOperationStatus(deviceId, isOn, true);
     }
+    if(response.data.errorCode !== 0) {
+      throw new Error(`Could not update operation status: ${JSON.stringify(response.data)}`);
+    }
   }
 
-  async setTankStatus(deviceId: string, isOn: boolean, retried = false) {
+  async setTankStatus(deviceId: string, operationStatus: boolean, isOn: boolean, retried = false) {
     await this.ensureAuthenticated();
     const response = await axios({
       'method': 'POST',
@@ -277,6 +293,7 @@ export class PanasonicApi {
           'status':[
             {
               'deviceGuid':deviceId,
+              'operationStatus':operationStatus ? 1 : 0,
               'tankStatus':[{'operationStatus':isOn ? 1 : 0}],
             },
           ],
@@ -287,7 +304,10 @@ export class PanasonicApi {
         throw new Error('Cannot authenticate');
       }
       await this.ensureAuthenticated(true);
-      return this.setTankStatus(deviceId, isOn, true);
+      return this.setTankStatus(deviceId, operationStatus, isOn, true);
+    }
+    if(response.data.errorCode !== 0) {
+      throw new Error(`Could not update tank status: ${JSON.stringify(response.data)}`);
     }
   }
 }

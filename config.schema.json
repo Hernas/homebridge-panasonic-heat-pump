@@ -41,7 +41,7 @@
         "title": "Refresh time",
         "type": "integer",
         "minimum": 15,
-        "default": 60
+        "default": 15
       }
     }
   }
