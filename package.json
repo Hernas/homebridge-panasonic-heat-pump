@@ -23,7 +23,10 @@
     "prepublishOnly": "npm run lint && npm run build"
   },
   "keywords": [
-    "homebridge-plugin"
+    "homebridge-plugin",
+    "homekit",
+    "panasonic",
+    "heatpump"
   ],
   "dependencies": {
     "axios": "^0.26.1"

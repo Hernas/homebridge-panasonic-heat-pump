@@ -6,4 +6,4 @@ export const PLATFORM_NAME = 'PanasonicHeatPumpHomebridgePlugin';
 /**
  * This must match the name of your plugin as defined the package.json
  */
-export const PLUGIN_NAME = 'homebridge-panasonic-heat-pump';
+export const PLUGIN_NAME = '@hernas/homebridge-panasonic-heat-pump';
