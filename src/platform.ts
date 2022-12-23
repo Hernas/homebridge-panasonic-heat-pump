@@ -65,7 +65,7 @@ export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugi
           if(existingAccessory) {
             this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory.accessory]);
           }
-          return;
+          continue;
         }
         const existingOldAccessory = this.accessories
           .find(accessory => accessory.accessory.UUID === this.api.hap.uuid.generate(device.uniqueId));
@@ -119,7 +119,7 @@ export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugi
     if(currentTimeout) {
       clearTimeout(currentTimeout);
     }
-    const timeout = (this.config.refreshTime ?? 15) * 1000;
+    const timeout = (this.config.refreshTime ?? 5) * 1000;
     this.timeoutIds[deviceId] = setTimeout(() => {
       this.updateReadings(deviceId);
     }, timeout);

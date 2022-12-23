@@ -40,8 +40,8 @@
       "refreshTime": {
         "title": "Refresh time",
         "type": "integer",
-        "minimum": 15,
-        "default": 15
+        "minimum": 5,
+        "default": 5
       }
     }
   }
