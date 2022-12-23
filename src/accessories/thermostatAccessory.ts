@@ -46,6 +46,11 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
 
     this.setupTankService();
 
+    // Remove old existing temp sensor
+    const existingTempSensor = this.accessory.getService('Outdoor');
+    if(existingTempSensor) {
+      this.accessory.removeService(existingTempSensor);
+    }
 
     // Eco Mode
     if (this.platform.config.enableEcoModeSwitch) {
