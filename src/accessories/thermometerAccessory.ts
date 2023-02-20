@@ -37,6 +37,7 @@ export class ThermometerAccessory extends Accessory<DeviceContext> {
 
 
   async onUpdateDetails(readings: DeviceDetails) {
+    super.onUpdateDetails(readings);
     const {
       outdoorTemperatureNow,
     } = readings;

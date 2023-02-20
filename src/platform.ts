@@ -243,6 +243,7 @@ export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugi
       this.log.debug(`Readings: ${JSON.stringify(details, undefined, 4)}`);
       if(details) {
         this.accessories.filter(({accessory}) => uuids.includes(accessory.UUID)).forEach((accessory) => {
+          this.log.debug(`Updating: ${accessory.accessory.displayName} [${accessory.accessory.UUID}]`);
           accessory.onUpdateDetails(details);
         });
       }

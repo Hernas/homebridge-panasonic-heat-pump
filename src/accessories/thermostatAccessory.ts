@@ -217,6 +217,7 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
   }
 
   async onUpdateDetails(readings: DeviceDetails) {
+    super.onUpdateDetails(readings);
     const {
       temperatureNow, tankTemperatureNow, tankTemperatureSet, tankHeatingCoolingState, isActive, ecoModeIsActive,
       comfortModeIsActive, tankTemperatureMax, tankTemperatureMin, tankTargetHeatingCoolingState, heatingCoolingState,
