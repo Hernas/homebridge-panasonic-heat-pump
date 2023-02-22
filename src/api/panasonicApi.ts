@@ -93,6 +93,8 @@ export class PanasonicApi {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Cookie': `accessToken=${this.accessToken};`,
         'Origin': 'https://aquarea-smart.panasonic.com',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 '
+        +'(KHTML, like Gecko) Version/16.3 Safari/605.1.15',
       },
     });
     if (response.data.errorCode > 0 || !response.data.status || !response.data.status[0]) {

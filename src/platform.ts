@@ -4,12 +4,13 @@ import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { PanasonicApi } from './api/panasonicApi';
 import { AccessoryType, accessoryTypeClases, DeviceContext, DeviceDetails } from './types';
 import { Accessory } from './accessories/accessory';
-import { ThermometerAccessory } from './accessories/thermometerAccessory';
 
 export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service = this.api.hap.Service;
   public readonly Characteristic: typeof Characteristic = this.api.hap.Characteristic;
 
+  // this is used to track restored cached accessories
+  public cachedAccessories: PlatformAccessory[] = [];
   public readonly accessories: Accessory<DeviceContext>[] = [];
   public readonly panasonicApi?: PanasonicApi;
 
@@ -39,15 +40,7 @@ export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugi
    */
   configureAccessory(accessory: PlatformAccessory<DeviceContext>) {
     this.log.info('accessory accessory from cache:', accessory.displayName);
-    if(!this.panasonicApi) {
-      return;
-    }
-    const accessoryClass = accessoryTypeClases[accessory.context.type];
-    if(accessoryClass) {
-      this.accessories.push(new accessoryClass(this, accessory as PlatformAccessory<DeviceContext>, this.panasonicApi));
-    } else {
-      this.accessories.push(new ThermometerAccessory(this, accessory as PlatformAccessory<DeviceContext>, this.panasonicApi));
-    }
+    this.cachedAccessories.push(accessory);
   }
 
   async configureDevices() {
@@ -59,11 +52,11 @@ export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugi
       for(const type of Object.keys(accessoryTypeClases)) {
         const accessoryClass = accessoryTypeClases[type];
         const uuid = this.api.hap.uuid.generate(`${device.uniqueId}-${type}`);
-        const existingAccessory = this.accessories.find(accessory => accessory.accessory.UUID === uuid);
+        const existingAccessory = this.cachedAccessories.find(accessory => accessory.UUID === uuid);
 
         if(!this.config.enableOutdoorTempSensor && type as unknown as AccessoryType === AccessoryType.Thermometer) {
           if(existingAccessory) {
-            this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory.accessory]);
+            this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory]);
           }
           continue;
         }
@@ -73,22 +66,25 @@ export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugi
           this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingOldAccessory.accessory]);
         }
 
-
-        if (existingAccessory) {
-          this.log.info('Restoring existing accessory from cache:', existingAccessory.accessory.displayName);
-          if (existingAccessory.accessory.context.device.hasWaterTank === undefined) {
-            existingAccessory.accessory.context.device = device;
-            this.api.updatePlatformAccessories([existingAccessory.accessory]);
+        const accessory = (() => {
+          if (existingAccessory) {
+            this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
+            if (existingAccessory.context.device.hasWaterTank === undefined) {
+              existingAccessory.context.device = device;
+              this.api.updatePlatformAccessories([existingAccessory]);
+            }
+            return existingAccessory;
           }
-        } else {
+
           this.log.info('Adding new accessory:', device.displayName);
           const accessory = new this.api.platformAccessory(device.displayName, uuid);
           accessory.context.device = device;
-          this.accessories.push(new accessoryClass(this, accessory as PlatformAccessory<DeviceContext>, this.panasonicApi));
           this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
-        }
+          return accessory;
+        })();
+        this.accessories.push(new accessoryClass(this, accessory as PlatformAccessory<DeviceContext>, this.panasonicApi));
+        this.updateReadings(device.uniqueId);
       }
-      this.updateReadings(device.uniqueId);
     }
   }
 
