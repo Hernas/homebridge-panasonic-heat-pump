@@ -11,6 +11,7 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
   private ecoModeService: Service | undefined;
   private comfortModeService: Service | undefined;
   private readonly isCoolModeEnabled: boolean;
+  private readonly zoneSensor: 'internal' | 'Water temperature';
   private readonly hasWaterTank: boolean;
 
   constructor(
@@ -21,6 +22,7 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
     super(platform, accessory, panasonicApi);
     this.isCoolModeEnabled = this.accessory.context.device.isCoolModeEnabled;
     this.hasWaterTank = this.accessory.context.device.hasWaterTank;
+    this.zoneSensor = this.accessory.context.device.zoneSensor;
     // set accessory information
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Panasonic')
@@ -126,7 +128,8 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
     if(!readings) {
       return;
     }
-    const adjustedTemp = (parseInt(temp as string)) - readings.temperatureNow;
+    const parsedTemp = parseInt(temp as string);
+    const adjustedTemp = this.zoneSensor === 'internal' ? parsedTemp : parsedTemp - readings.temperatureNow;
 
     try {
       this.panasonicApi.setZoneTemp(this.accessory.context.device.uniqueId,
@@ -249,6 +252,14 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
   }
 
   private updateTargetTemperaturePropsAndReturnCurrentTemp({ targetTempMin, targetTempMax, targetTempSet, temperatureNow }: DeviceDetails) {
+    if(this.zoneSensor === 'internal') {
+      this.service.getCharacteristic(this.platform.Characteristic.TargetTemperature).setProps({
+        minValue: targetTempMin,
+        maxValue: targetTempMax,
+        minStep: 1,
+      });
+      return targetTempSet;
+    }
     const tempMin = Math.floor(targetTempMin) + Math.floor(temperatureNow);
     const tempMax = Math.ceil(targetTempMax) + Math.ceil(temperatureNow);
     const tempCurrent = Math.round(targetTempSet + temperatureNow);
