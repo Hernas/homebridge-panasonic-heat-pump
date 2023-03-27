@@ -24,6 +24,8 @@ export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugi
 
     if (this.config.email && this.config.password) {
       this.panasonicApi = new PanasonicApi(this.config.email, this.config.password, this.log);
+    } else {
+      this.log.error('Missing email & password, please configure the plugin correctly.');
     }
 
     this.api.on('didFinishLaunching', () => {
@@ -44,8 +46,16 @@ export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugi
   }
 
   async configureDevices() {
+    if(!this.panasonicApi) {
+      return;
+    }
+    this.log.debug('Fetching devices');
     const devices = await this.fetchDevices();
-    if (!devices || !this.panasonicApi) {
+    if (!devices) {
+      this.log.warn('Could not load any devices from Comfort Cloud API, trying again in 60 seconds');
+      setTimeout(() => {
+        this.configureDevices();
+      }, 60000);
       return;
     }
     for (const device of devices) {

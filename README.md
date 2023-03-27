@@ -1,5 +1,5 @@
 [![NPM](https://img.shields.io/npm/v/@hernas/homebridge-panasonic-heat-pump)](https://npmjs.org/package/@hernas/homebridge-panasonic-heat-pump)
-
+[![verified-by-homebridge](https://badgen.net/badge/homebridge/verified/purple)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
 
 # homebridge-panasonic-heat-pump
 Panasonic Heat Pump plugin for [HomeBridge](https://github.com/nfarina/homebridge) using the Panasonic *Comfort Cloud* API to expose Panasonic Heat Pumps to Apples HomeKit.
