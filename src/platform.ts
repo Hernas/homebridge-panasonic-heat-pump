@@ -58,12 +58,13 @@ export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugi
       }, 60000);
       return;
     }
+    const foundAccessoriesUUIDs: string[] = [];
     for (const device of devices) {
       for(const type of Object.keys(accessoryTypeClases)) {
         const accessoryClass = accessoryTypeClases[type];
         const uuid = this.api.hap.uuid.generate(`${device.uniqueId}-${type}`);
         const existingAccessory = this.cachedAccessories.find(accessory => accessory.UUID === uuid);
-
+        foundAccessoriesUUIDs.push(uuid);
         if(!this.config.enableOutdoorTempSensor && type as unknown as AccessoryType === AccessoryType.Thermometer) {
           if(existingAccessory) {
             this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory]);
@@ -95,6 +96,14 @@ export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugi
         this.accessories.push(new accessoryClass(this, accessory as PlatformAccessory<DeviceContext>, this.panasonicApi));
         this.updateReadings(device.uniqueId);
       }
+    }
+
+    for(const cachedAccessory of this.cachedAccessories) {
+      if(foundAccessoriesUUIDs.includes(cachedAccessory.UUID)) {
+        continue;
+      }
+      this.log.info('Removing non-existing accessory:', cachedAccessory.displayName);
+      this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [cachedAccessory]);
     }
   }
 
