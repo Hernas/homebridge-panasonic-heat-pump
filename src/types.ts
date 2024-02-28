@@ -10,7 +10,7 @@ export interface Device {
     displayName: string;
     isCoolModeEnabled: boolean;
     hasWaterTank: boolean;
-    zoneSensor: 'internal' | 'Water temperature';
+    zoneSensor: 'Internal' | 'Water temperature';
 }
 
 export interface DeviceContext {

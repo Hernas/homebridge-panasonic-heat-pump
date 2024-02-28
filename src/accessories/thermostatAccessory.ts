@@ -11,7 +11,7 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
   private ecoModeService: Service | undefined;
   private comfortModeService: Service | undefined;
   private readonly isCoolModeEnabled: boolean;
-  private readonly zoneSensor: 'internal' | 'Water temperature';
+  private readonly zoneSensor: 'Internal' | 'Water temperature';
   private readonly hasWaterTank: boolean;
 
   constructor(
@@ -129,7 +129,7 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
       return;
     }
     const parsedTemp = parseInt(temp as string);
-    const adjustedTemp = this.zoneSensor === 'internal' ? parsedTemp : parsedTemp - readings.temperatureNow;
+    const adjustedTemp = this.zoneSensor === 'Internal' ? parsedTemp : parsedTemp - readings.temperatureNow;
 
     try {
       this.panasonicApi.setZoneTemp(this.accessory.context.device.uniqueId,
@@ -252,7 +252,7 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
   }
 
   private updateTargetTemperaturePropsAndReturnCurrentTemp({ targetTempMin, targetTempMax, targetTempSet, temperatureNow }: DeviceDetails) {
-    if(this.zoneSensor === 'internal') {
+    if(this.zoneSensor === 'Internal') {
       this.service.getCharacteristic(this.platform.Characteristic.TargetTemperature).setProps({
         minValue: targetTempMin,
         maxValue: targetTempMax,
