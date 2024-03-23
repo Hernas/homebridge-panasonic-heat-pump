@@ -9,7 +9,7 @@ describe('PanasonicApi', () => {
     const device = await panasonicApi.loadDevice();
     expect(device).toEqual( {
       'selectedDeviceId': expect.anything(),
-      'selectedDeviceName': 'HeatPump',
+      'selectedDeviceName': 'Smardzow',
       'deviceConf': {
         'deviceGuid': expect.anything(),
         'configration': [
@@ -23,10 +23,10 @@ describe('PanasonicApi', () => {
                 'outdoorType': 'STD',
                 'zoneId': 1,
                 'zoneType': 'Room',
-                'zoneName': 'Home',
+                'zoneName': 'House',
               },
             ],
-            'a2wName': 'HeatPump',
+            'a2wName': 'Smardzow',
             'operationMode': 'Heat',
             'deviceGuid': expect.anything(),
             'lastErrorNumber': '',
@@ -38,7 +38,8 @@ describe('PanasonicApi', () => {
                 'tank': 'Yes',
               },
             ],
-            'firmVersion': '040102',
+            'firmVersion': '040700',
+            'forceHeater': 0,
           },
         ],
       },
