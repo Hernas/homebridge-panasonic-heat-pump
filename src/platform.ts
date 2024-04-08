@@ -4,6 +4,7 @@ import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { PanasonicApi } from './api/panasonicApi';
 import { AccessoryType, accessoryTypeClases, DeviceContext, DeviceDetails } from './types';
 import { Accessory } from './accessories/accessory';
+import { parsePanasonicDetails } from './utils/parsePanasonicDetails';
 
 export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service = this.api.hap.Service;
@@ -148,111 +149,7 @@ export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugi
         return;
       }
       const details = await this.panasonicApi.loadDeviceDetails(deviceId);
-
-      const operationalZone = details.zoneStatus.find(z => z.temparatureNow !== null);
-      const temperatureNow = operationalZone?.temparatureNow;
-
-      const isActive = details.operationStatus === 1;
-      const direction = details.direction;
-      const isWholeHeaterOff = details.operationStatus === 0 || operationalZone.operationStatus === 0;
-
-      // What is currently being heated (so if both water tank and heater are on, what is currently being provided with heat)
-      const isHeatingOn = direction === 1;
-      const isTankOn = direction === 2;
-
-      // if you need to return an error to show the device as "Not Responding" in the Home app:
-      // throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
-      const operationMode = details.operationMode;
-      const heatingCoolingState = (() => {
-        if(!isHeatingOn || isWholeHeaterOff) {
-          return this.Characteristic.CurrentHeatingCoolingState.OFF;
-        }
-        if(operationMode === 1) {
-          return this.Characteristic.CurrentHeatingCoolingState.HEAT;
-        }
-        if(operationMode === 2) {
-          return this.Characteristic.CurrentHeatingCoolingState.COOL;
-        }
-        if(operationMode === 3) {
-        // AUTO
-          return this.Characteristic.CurrentHeatingCoolingState.HEAT;
-        }
-        if(operationMode === 4) {
-        // AUTO
-          return this.Characteristic.CurrentHeatingCoolingState.COOL;
-        }
-        return this.Characteristic.CurrentHeatingCoolingState.OFF;
-      })();
-      const targetHeatingCoolingState = (() => {
-        if(details.operationStatus === 0 || operationalZone.operationStatus === 0) {
-          return this.Characteristic.TargetHeatingCoolingState.OFF;
-        }
-        switch (operationMode) {
-          case 1:
-            return this.Characteristic.TargetHeatingCoolingState.HEAT;
-          case 2:
-            return this.Characteristic.TargetHeatingCoolingState.COOL;
-          case 3:
-          case 4:
-            return this.Characteristic.TargetHeatingCoolingState.AUTO;
-        }
-        return this.Characteristic.TargetHeatingCoolingState.OFF;
-      })();
-      const ecoModeIsActive = details.specialStatus.find(s => s.specialMode === 1).operationStatus === 1;
-      const comfortModeIsActive = details.specialStatus.find(s => s.specialMode === 2).operationStatus === 1;
-      const outdoorTemperatureNow = details.outdoorNow;
-      const tankTemperatureNow = details.tankStatus[0].temparatureNow;
-      const tankTemperatureSet = details.tankStatus[0].heatSet;
-      const tankIsActive = details.tankStatus[0].operationStatus === 1;
-      const tankHeatingCoolingState = (() => {
-        if (!isTankOn || !isActive || !tankIsActive) {
-          return this.Characteristic.CurrentHeatingCoolingState.OFF;
-        }
-        return this.Characteristic.CurrentHeatingCoolingState.HEAT;
-      })();
-      const tankTargetHeatingCoolingState = (() => {
-        if (!tankIsActive || !isActive) {
-          return this.Characteristic.TargetHeatingCoolingState.OFF;
-        }
-        return this.Characteristic.TargetHeatingCoolingState.HEAT;
-      })();
-
-
-      const tempType: 'heat' | 'cool' | 'eco' | 'comfort' = (() => {
-        if(ecoModeIsActive) {
-          return 'eco';
-        }
-        if(comfortModeIsActive) {
-          return 'comfort';
-        }
-        if(operationMode === 1 || operationMode === 3) {
-
-          return 'heat';
-        }
-        if(operationMode === 2 || operationMode === 4) {
-          return 'cool';
-        }
-        return 'heat';
-      })();
-      return {
-        temperatureNow,
-        heatingCoolingState,
-        targetHeatingCoolingState,
-        outdoorTemperatureNow,
-        tankTemperatureNow,
-        tankTemperatureSet,
-        tankHeatingCoolingState,
-        tankTargetHeatingCoolingState,
-        isActive,
-        ecoModeIsActive,
-        comfortModeIsActive,
-        tankTemperatureMax: details.tankStatus[0].heatMax,
-        tankTemperatureMin: details.tankStatus[0].heatMin,
-        targetTempSet: operationalZone[`${tempType}Set`],
-        targetTempMin: operationalZone[`${tempType}Min`],
-        targetTempMax: operationalZone[`${tempType}Max`],
-        tempType,
-      };
+      return parsePanasonicDetails(details, this.Characteristic);
     };
     try {
       const details = await loadReadings();

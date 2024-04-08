@@ -125,6 +125,9 @@ export class PanasonicApi {
       validateStatus: () => true,
     });
 
+    if(response3.status !== 200) {
+      throw new Error(`Wrong response for usernamepassword/login: ${response3.status}. Most probably wrong credentials.`);
+    }
     const actionUrl = response3.data.match(/action="(.+?)"/i)?.[1];
     const inputs = response3.data.match(/<input([^\0]+?)>/ig) ?? [];
     const formData:Record<string, string> = {};

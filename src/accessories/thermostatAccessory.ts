@@ -260,6 +260,13 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
       });
       return targetTempSet;
     }
+    if(targetTempMin === undefined || temperatureNow === undefined || targetTempMax === undefined || targetTempSet === undefined) {
+      this.platform.log.error(
+        `updateTargetTemperaturePropsAndReturnCurrentTemp got wrong readings:  
+        ${JSON.stringify({ targetTempMin, targetTempMax, targetTempSet, temperatureNow })}
+        `);
+      return 100; // fake big value to indicate the issue in homekit
+    }
     const tempMin = Math.floor(targetTempMin) + Math.floor(temperatureNow);
     const tempMax = Math.ceil(targetTempMax) + Math.ceil(temperatureNow);
     const tempCurrent = Math.round(targetTempSet + temperatureNow);
