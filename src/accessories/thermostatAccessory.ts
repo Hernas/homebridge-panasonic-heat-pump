@@ -129,14 +129,13 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
       return;
     }
     const parsedTemp = parseInt(temp as string);
-    const adjustedTemp = this.zoneSensor === 'Internal' ? parsedTemp : parsedTemp - readings.temperatureNow;
 
     try {
       this.panasonicApi.setZoneTemp(this.accessory.context.device.uniqueId,
-        adjustedTemp, readings.tempType);
+        parsedTemp, readings.tempType);
     } catch (e) {
       this.platform.log.error(
-        `Could not set zone temp[${this.accessory.context.device.uniqueId}][${adjustedTemp}][${readings.tempType}]: ${e}`,
+        `Could not set zone temp[${this.accessory.context.device.uniqueId}][${parsedTemp}][${readings.tempType}]: ${e}`,
       );
     }
   }
@@ -252,35 +251,12 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
   }
 
   private updateTargetTemperaturePropsAndReturnCurrentTemp({ targetTempMin, targetTempMax, targetTempSet, temperatureNow }: DeviceDetails) {
-    if(this.zoneSensor === 'Internal') {
-      this.service.getCharacteristic(this.platform.Characteristic.TargetTemperature).setProps({
-        minValue: targetTempMin,
-        maxValue: targetTempMax,
-        minStep: 1,
-      });
-      return targetTempSet;
-    }
-    if(targetTempMin === undefined || temperatureNow === undefined || targetTempMax === undefined || targetTempSet === undefined) {
-      this.platform.log.error(
-        `updateTargetTemperaturePropsAndReturnCurrentTemp got wrong readings:  
-        ${JSON.stringify({ targetTempMin, targetTempMax, targetTempSet, temperatureNow })}
-        `);
-      return 100; // fake big value to indicate the issue in homekit
-    }
-    const tempMin = Math.floor(targetTempMin) + Math.floor(temperatureNow);
-    const tempMax = Math.ceil(targetTempMax) + Math.ceil(temperatureNow);
-    const tempCurrent = Math.round(targetTempSet + temperatureNow);
-    this.platform.log.debug(`Updating TargetTemperature of Floor Heater: ${JSON.stringify({
-      minValue: tempMin,
-      maxValue: tempMax,
-      minStep: 1,
-    })}`);
     this.service.getCharacteristic(this.platform.Characteristic.TargetTemperature).setProps({
-      minValue: tempMin,
-      maxValue: tempMax,
+      minValue: targetTempMin,
+      maxValue: targetTempMax,
       minStep: 1,
     });
-    return Math.max(tempMin, Math.min(tempMax, tempCurrent));
+    return targetTempSet;
   }
 
 
