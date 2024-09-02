@@ -11,7 +11,6 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
   private ecoModeService: Service | undefined;
   private comfortModeService: Service | undefined;
   private readonly isCoolModeEnabled: boolean;
-  private readonly zoneSensor: 'Internal' | 'Water temperature';
   private readonly hasWaterTank: boolean;
 
   constructor(
@@ -22,7 +21,6 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
     super(platform, accessory, panasonicApi);
     this.isCoolModeEnabled = this.accessory.context.device.isCoolModeEnabled;
     this.hasWaterTank = this.accessory.context.device.hasWaterTank;
-    this.zoneSensor = this.accessory.context.device.zoneSensor;
     // set accessory information
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Panasonic')
@@ -128,15 +126,16 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
     if(!readings) {
       return;
     }
+    const {targetTempMin, tempType} = readings;
+    const temperatureDelta = this.getTemperatureDelta({targetTempMin});
     const parsedTemp = parseInt(temp as string);
-    const adjustedTemp = this.zoneSensor === 'Internal' ? parsedTemp : parsedTemp - readings.temperatureNow;
+    const adjustedTemp = parsedTemp + temperatureDelta;
 
     try {
-      this.panasonicApi.setZoneTemp(this.accessory.context.device.uniqueId,
-        adjustedTemp, readings.tempType);
+      this.panasonicApi.setZoneTemp(this.accessory.context.device.uniqueId, adjustedTemp, tempType);
     } catch (e) {
       this.platform.log.error(
-        `Could not set zone temp[${this.accessory.context.device.uniqueId}][${adjustedTemp}][${readings.tempType}]: ${e}`,
+        `Could not set zone temp[${this.accessory.context.device.uniqueId}][${adjustedTemp}][${tempType}]: ${e}`,
       );
     }
   }
@@ -233,7 +232,6 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
 
     const currentTemp = this.updateTargetTemperaturePropsAndReturnCurrentTemp(readings);
     this.service.getCharacteristic(this.platform.Characteristic.TargetTemperature).updateValue(currentTemp);
-    // As heat pumps take -5 up to +5 target temp and HomeKit does not support it, we have to adjust by tempNow
 
     if (this.tankService) {
       this.tankService.getCharacteristic(this.platform.Characteristic.TargetTemperature).setProps({
@@ -251,25 +249,24 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
     this.comfortModeService?.getCharacteristic(this.platform.Characteristic.On).updateValue(comfortModeIsActive);
   }
 
+  private getTemperatureDelta({ targetTempMin }: Pick<DeviceDetails, 'targetTempMin'>) {
+    // As heat pumps take -5 up to +5 target temp and HomeKit does not support it, we have to adjust by the min temp
+    return targetTempMin < 0 ? -targetTempMin : 0;
+  }
+
   private updateTargetTemperaturePropsAndReturnCurrentTemp({ targetTempMin, targetTempMax, targetTempSet, temperatureNow }: DeviceDetails) {
-    if(this.zoneSensor === 'Internal') {
-      this.service.getCharacteristic(this.platform.Characteristic.TargetTemperature).setProps({
-        minValue: targetTempMin,
-        maxValue: targetTempMax,
-        minStep: 1,
-      });
-      return targetTempSet;
-    }
-    if(targetTempMin === undefined || temperatureNow === undefined || targetTempMax === undefined || targetTempSet === undefined) {
+    if(targetTempMin === undefined || targetTempMax === undefined || targetTempSet === undefined) {
       this.platform.log.error(
         `updateTargetTemperaturePropsAndReturnCurrentTemp got wrong readings:  
         ${JSON.stringify({ targetTempMin, targetTempMax, targetTempSet, temperatureNow })}
         `);
       return 100; // fake big value to indicate the issue in homekit
     }
-    const tempMin = Math.floor(targetTempMin) + Math.floor(temperatureNow);
-    const tempMax = Math.ceil(targetTempMax) + Math.ceil(temperatureNow);
-    const tempCurrent = Math.round(targetTempSet + temperatureNow);
+
+    const temperatureDelta = this.getTemperatureDelta({targetTempMin});
+    const tempMin = targetTempMin + temperatureDelta;
+    const tempMax = targetTempMax + temperatureDelta;
+    const tempCurrent = targetTempSet + temperatureDelta;
     this.platform.log.debug(`Updating TargetTemperature of Floor Heater: ${JSON.stringify({
       minValue: tempMin,
       maxValue: tempMax,
@@ -280,7 +277,7 @@ export class ThermostatAccessory extends Accessory<DeviceContext> {
       maxValue: tempMax,
       minStep: 1,
     });
-    return Math.max(tempMin, Math.min(tempMax, tempCurrent));
+    return tempCurrent;
   }
 
 

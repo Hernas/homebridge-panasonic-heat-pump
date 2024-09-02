@@ -122,7 +122,6 @@ export class PanasonicHeatPumpHomebridgePlatform implements DynamicPlatformPlugi
           displayName: selectedDeviceName,
           isCoolModeEnabled: deviceConf.configration[0].zoneInfo[0].coolMode === 'enable',
           hasWaterTank: deviceConf.configration[0].tankInfo[0].tank === 'Yes',
-          zoneSensor: deviceConf.configration[0].zoneInfo[0].zoneSensor,
         },
       ];
     } catch (e) {
